@@ -4,3 +4,4 @@ __pycache__/
 debug.html
 .vscode/
 docs_content.txt
+.DS_Store
