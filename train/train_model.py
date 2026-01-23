@@ -7,8 +7,10 @@ import joblib
 import numpy as np
 
 # Config
-DATA_PATH = r'c:\Users\lewon\keiba\learn\data\raw\results_2016_2025.csv'
-MODEL_DIR = r'c:\Users\lewon\keiba\learn\models'
+# Config
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) # keiba/
+DATA_PATH = os.path.join(BASE_DIR, 'train', 'data', 'raw', 'results_2016_2025.csv')
+MODEL_DIR = os.path.join(BASE_DIR, 'train', 'models')
 os.makedirs(MODEL_DIR, exist_ok=True)
 
 def load_data():
@@ -97,10 +99,27 @@ def train_model(df, cat_cols, num_cols):
     print("Training LightGBM with Historical Features...")
     
     # Prepare X, y
+    # Define target for LambdaRank
+    # LambdaRank expects higher relevance for better items.
+    # Current rank: 1 is best, 18 is worst.
+    # We invert it: relevance = (Max Horses + 1) - rank.
+    # Assuming max horses is 18, we can use 20 to be safe.
+    
+    # Check max rank just in case
+    max_rank = df['rank'].max()
+    print(f"Max rank in dataset: {max_rank}")
+    
+    # Create relevance target
+    # If rank is 1, y = 20 - 1 = 19 (High relevance)
+    # If rank is 18, y = 20 - 18 = 2 (Low relevance)
+    y = 20 - df['rank']
+    
+    # Prepare X
     feature_cols = cat_cols + num_cols
     X = df[feature_cols]
-    y = df['rank']
     groups = df['race_id']
+    
+    # Split (Time-series like split on race_ids)
     
     # Split (Time-series like split on race_ids)
     unique_race_ids = df['race_id'].unique()

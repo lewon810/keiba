@@ -1,7 +1,7 @@
 import pandas as pd
 import os
 import glob
-from learn import settings
+from train import settings
 
 class HistoryLoader:
     def __init__(self):

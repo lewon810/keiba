@@ -111,7 +111,7 @@ def preprocess(df):
             df[col] = df[col].astype(str).fillna("unknown")
             le = LabelEncoder()
             df[col] = le.fit_transform(df[col])
-            artifacts[f'le_{col}'] = le
+            artifacts[col] = le
 
     # Fill NaNs
     df = df.fillna(0)
@@ -163,7 +163,12 @@ def transform(df, artifacts):
 
     # Lag Features (Past Performance) - Self-contained sort
     df = df.sort_values(['horse_id', 'date'])
-    df['lag1_rank'] = df.groupby('horse_id')['rank'].shift(1).fillna(99)
+    
+    # Ensure rank is numeric for lag calculation
+    if 'rank' in df.columns:
+        df['rank'] = pd.to_numeric(df['rank'], errors='coerce')
+        
+    df['lag1_rank'] = df.groupby('horse_id')['rank'].shift(1).fillna(99).astype(int)
     df['lag1_speed_index'] = df.groupby('horse_id')['speed_index'].shift(1).fillna(0)
     df['interval'] = (df['date'] - df.groupby('horse_id')['date'].shift(1)).dt.days.fillna(365)
 
@@ -183,9 +188,9 @@ def transform(df, artifacts):
     # Label Encoders
     for col in settings.CATEGORY_COLS:
         if col in df.columns:
-            le_key = f'le_{col}'
-            if le_key in artifacts:
-                le = artifacts[le_key]
+            # Keys in encoders.pkl are bare column names (e.g. 'horse_id')
+            if col in artifacts:
+                le = artifacts[col]
                 valid_classes = set(le.classes_)
                 # Handle unknown
                 df[col] = df[col].astype(str).map(lambda x: x if x in valid_classes else "unknown")
@@ -194,7 +199,7 @@ def transform(df, artifacts):
                     fallback = list(valid_classes)[0]
                     df[col] = df[col].map(lambda x: x if x in valid_classes else fallback)
                 
-                df[col] = le.transform(df[col])
+                df[col] = le.transform(df[col]).astype(int)
 
     # Rank Class (for evaluation if rank exists)
     if 'rank' in df.columns:

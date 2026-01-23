@@ -1,7 +1,7 @@
 import pandas as pd
 import os
 
-file_path = r'c:\Users\lewon\keiba\learn\data\raw\results_2016_2025.csv'
+file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'learn', 'data', 'raw', 'results_2016_2025.csv')
 
 if not os.path.exists(file_path):
     print(f"File not found: {file_path}")

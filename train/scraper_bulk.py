@@ -149,8 +149,8 @@ def scrape_race_data(race_id):
                 "jockey": cols[6].get_text(strip=True),
                 "jockey_id": cols[6].select_one("a").get("href").split("/")[-2] if cols[6].select_one("a") else "",
                 "time": cols[7].get_text(strip=True),
-                "odds": cols[9].get_text(strip=True),
-                "popularity": cols[10].get_text(strip=True)
+                "odds": cols[12].get_text(strip=True),
+                "popularity": cols[13].get_text(strip=True)
             }
             results.append(res)
         except Exception as e:

@@ -76,8 +76,9 @@ def fetch_race_data(url):
                         return parts[-1]
                 return "0"
 
-            horse["umaban"] = get_text("td.Umaban")
-            horse["waku"] = get_text("td.Waku")
+            # Use partial match for Waku/Umaban as classes can be 'Waku1', 'Umaban3' etc.
+            horse["umaban"] = get_text("td[class*='Umaban']")
+            horse["waku"] = get_text("td[class*='Waku']")
             horse["name"] = get_text(".HorseName a")
             horse["horse_id"] = get_id(".HorseName a")
             
