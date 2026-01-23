@@ -34,13 +34,36 @@ def predict(race_data):
         
         # --- Feature Engineering for Inference ---
         
-        # 1. Fill default Lag Features (Since we don't scrape past data yet)
-        if 'lag1_rank' not in df.columns:
-            df['lag1_rank'] = 99 # Default
-        if 'lag1_speed_index' not in df.columns:
-            df['lag1_speed_index'] = 0 # Default
-        if 'interval' not in df.columns:
-            df['interval'] = 365 # Default
+        # 1. Load History (Lag Features)
+        try:
+            from .history_loader import loader
+        except ImportError:
+            from history_loader import loader
+            
+        try:
+            loader.load() # Load CSVs once
+            
+            # Enrich race_data with history
+            for i, row in df.iterrows():
+                # Current Race Date provided by metadata? 
+                # Scraper puts "date" in input race_data! string "2024年..."
+                current_date = row.get('date', None)
+                
+                last_stats = loader.get_last_race(row['horse_id'], current_date_str=current_date)
+                
+                if last_stats:
+                    df.at[i, 'lag1_rank'] = last_stats['lag1_rank']
+                    df.at[i, 'lag1_speed_index'] = last_stats['lag1_speed_index']
+                    df.at[i, 'interval'] = last_stats['interval']
+                else:
+                    df.at[i, 'lag1_rank'] = 99
+                    df.at[i, 'lag1_speed_index'] = 0
+                    df.at[i, 'interval'] = 365
+        except Exception as e:
+            print(f"History load failed: {e}")
+            df['lag1_rank'] = 99
+            df['lag1_speed_index'] = 0
+            df['interval'] = 365
         
         # 2. Jockey Win Rate
         jockey_map = artifacts.get('jockey_win_rate', {})
