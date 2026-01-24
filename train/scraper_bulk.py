@@ -39,15 +39,52 @@ def get_race_ids(year, month):
     soup = BeautifulSoup(html, "lxml")
     race_ids = []
     
-    # Selector for race links in db.netkeiba
-    # Links look like /race/202306010101/
-    for a in soup.select("a[href^='/race/']"):
+    # 1. Find all date links (e.g. /race/list/20230105/ or ?pid=race_list&date=20230105)
+    date_links = set()
+    for a in soup.find_all("a"):
         href = a.get("href")
-        # Extract ID (e.g., 202306010101)
-        rid = href.split("/")[-2]
-        if rid.isdigit() and len(rid) == 12:
-            race_ids.append(rid)
+        if not href: continue
+        
+        # New pattern: /race/list/20230105/
+        if "/race/list/20" in href:
+             # Normalize
+             if href.startswith("/"):
+                 href = "https://db.netkeiba.com" + href
+             date_links.add(href)
+             
+        # Old pattern: pid=race_list&date=
+        elif "pid=race_list&date=" in href:
+            if href.startswith("/"):
+                href = "https://db.netkeiba.com" + href
+            elif not href.startswith("http"):
+                href = "https://db.netkeiba.com/?" + href.split("?")[-1]
+            date_links.add(href)
             
+    print(f"  Found {len(date_links)} race days in {year}-{month}.")
+    
+    # 2. Visit each date page to get race IDs
+    for date_url in sorted(list(date_links)):
+        # print(f"  Fetching day: {date_url}")
+        d_html = fetch_html(date_url)
+        if not d_html: continue
+        
+        d_soup = BeautifulSoup(d_html, "lxml")
+        
+        # In the daily list, links are standard /race/ID/
+        # Check both /race/ and /race/sum/ if any
+        # Also avoid capturing the date list itself if it matches /race/something
+        for a in d_soup.select("a[href^='/race/']"):
+            href = a.get("href")
+            # /race/202306010101/
+            parts = href.split("/")
+            # filter out /race/list/...
+            if "list" in href: continue
+            
+            if len(parts) >= 3:
+                rid = parts[2]
+                if rid.isdigit() and len(rid) == 12:
+                    race_ids.append(rid)
+                    
     return sorted(list(set(race_ids)))
 
 def scrape_race_data(race_id):
@@ -162,27 +199,29 @@ def bulk_scrape(year_start, year_end, month_start=1, month_end=12):
     """
     Main function to scrape a range of data.
     """
-    all_data = []
+    all_data = [] # Keep accumulating if needed for return, or verify memory usage
     
     for year in range(year_start, year_end + 1):
+        year_data = []
         for month in range(month_start, month_end + 1):
             print(f"Scraping {year}-{month}...")
             rids = get_race_ids(year, month)
             print(f"Found {len(rids)} races.")
             
-            # Limit for demo purposes if list is huge
-            # rids = rids[:3] 
-            
             for rid in tqdm(rids):
                 data = scrape_race_data(rid)
                 if data:
-                    all_data.extend(data)
-                    
-    df = pd.DataFrame(all_data)
-    save_path = os.path.join(settings.RAW_DATA_DIR, f"results_{year_start}_{year_end}.csv")
-    df.to_csv(save_path, index=False)
-    print(f"Saved {len(df)} rows to {save_path}")
-    return df
+                    year_data.extend(data)
+        
+        # Save per year
+        if year_data:
+            df_year = pd.DataFrame(year_data)
+            save_path = os.path.join(settings.RAW_DATA_DIR, f"results_{year}.csv")
+            df_year.to_csv(save_path, index=False)
+            print(f"Saved {len(df_year)} rows to {save_path}")
+            all_data.extend(year_data)
+            
+    return pd.DataFrame(all_data)
 
 if __name__ == "__main__":
     import argparse

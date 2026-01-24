@@ -18,7 +18,16 @@ def load_data():
     if not dfs:
         raise ValueError("No data found in raw directory.")
         
-    return pd.concat(dfs, ignore_index=True)
+    df = pd.concat(dfs, ignore_index=True)
+    
+    # Drop duplicates in case of overlapping CSVs
+    # Identify unique rows by race_id + horse_id
+    initial_len = len(df)
+    df = df.drop_duplicates(subset=['race_id', 'horse_id'])
+    if len(df) < initial_len:
+        print(f"Dropped {initial_len - len(df)} duplicate rows.")
+        
+    return df
 
 def preprocess(df):
     """
