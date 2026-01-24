@@ -15,14 +15,39 @@ on:
         type: string
 
 jobs:
-  scrape:
+  setup:
     runs-on: ubuntu-latest
+    outputs:
+      years: ${{ steps.set-matrix.outputs.years }}
+    steps:
+      - name: Generate Matrix
+        id: set-matrix
+        run: |
+          start=${{ inputs.start_year }}
+          end=${{ inputs.end_year }}
+          # Generate JSON array of years (e.g. ["2023", "2024"])
+          years_json=$(python3 -c "import json; print(json.dumps([str(y) for y in range($start, $end + 1)]))")
+          echo "Generated matrix: $years_json"
+          echo "years=$years_json" >> $GITHUB_OUTPUT
+
+  scrape:
+    needs: setup
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        year: ${{ fromJson(needs.setup.outputs.years) }}
+      # Don't cancel other years if one fails (optional but good for scraping)
+      fail-fast: false
+      max-parallel: 5 # Reduce load on Netkeiba
+
     permissions:
       contents: write
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Needed for robust pull/rebase
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -35,20 +60,44 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run Scraper
+      - name: Run Scraper for ${{ matrix.year }}
         run: |
-          python -m train.scraper_bulk --start ${{ inputs.start_year }} --end ${{ inputs.end_year }}
+          python -m train.scraper_bulk --start ${{ matrix.year }} --end ${{ matrix.year }}
 
       - name: Commit and Push results
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add train/data/raw/*.csv
           
-          # Check if there are changes to commit
+          # Add unique file for this year (avoids merge conflicts on same file)
+          git add train/data/raw/results_${{ matrix.year }}.csv
+          
           if git diff --staged --quiet; then
-            echo "No changes to commit."
-          else
-            git commit -m "Data: Update race results ${{ inputs.start_year }}-${{ inputs.end_year }}"
-            git push
+            echo "No changes to commit for ${{ matrix.year }}."
+            exit 0
+          fi
+          
+          git commit -m "Data: Update race results ${{ matrix.year }}"
+          
+          # Retry loop for Push (Max 5 times)
+          MAX_RETRIES=5
+          count=0
+          success=false
+          
+          while [ $count -lt $MAX_RETRIES ]; do
+            git pull --rebase origin main
+            if git push origin main; then
+              success=true
+              break
+            fi
+            echo "Push failed, retrying in random seconds... ($((count+1))/$MAX_RETRIES)"
+            count=$((count+1))
+            sleep $((RANDOM % 10 + 5))
+          done
+          
+          if [ "$success" = false ]; then
+            echo "Failed to push after $MAX_RETRIES attempts."
+            exit 1
           fi
