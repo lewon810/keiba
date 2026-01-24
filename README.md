@@ -59,12 +59,41 @@ python -m app.main
 - **Direct URL**: NetkeibaのURLを直接貼り付けて予想します。
 
 ### 2. モデル精度を検証する (Evaluation)
-`betting.yaml` で条件（対象競馬場など）を設定し、バックテストを実行します。
+`betting.yml` で条件（対象競馬場など）や**賭け式**を設定し、バックテストを実行します。
+
+```yaml
+# betting.yml example
+target_places: ["06"] # Nakayama
+betting_type: win     # win, place, trifecta, box_trifecta, uma_ren, wide
+```
 
 ```powershell
 # 例: 2025年のデータでバックテスト
 python -m train.evaluate --start 2025 --end 2025
 ```
+- **win**: 単勝 (ROI算出あり)
+- **place**: 複勝 (的中率のみ)
+- **trifecta**: 3連単 (1-2-3着完全一致)
+- **box_trifecta**: 3連単ボックス (上位3頭が1-3着入線)
+
+### 3. モデルの再学習 (Training)
+最新データを取り込んでモデルを再学習させる手順です。
+
+#### Step 1: データの収集 (Scraping)
+Netkeibaから過去のレース結果を収集します。（時間がかかります）
+```powershell
+# 例: 2023年〜2024年のデータを収集
+python -m train.scraper_bulk --start 2023 --end 2024
+```
+※ `train/data/raw/` にCSVファイルが保存されます。
+
+#### Step 2: モデルの学習 (Training)
+収集したデータを使ってLightGBMモデルを学習させます。
+```powershell
+# 自動的にrawデータを読み込み、前処理・学習・保存を行います
+python -m train.train
+```
+※ 学習済みモデルは `train/models/lgbm_ranker_v2.pkl` に保存されます。
 
 ## 📂 プロジェクト構成
 

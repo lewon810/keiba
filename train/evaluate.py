@@ -37,9 +37,11 @@ def evaluate(start_year, end_year, csv_file=None):
         print("No data found.")
         return
 
-    # --- Filtering based on betting.yaml ---
+    # --- Filtering based on betting.yml ---
     import yaml
-    yaml_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'betting.yaml')
+    yaml_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'betting.yml')
+    config = {}
+    
     if os.path.exists(yaml_path):
         print(f"Loading filters from {yaml_path}...")
         with open(yaml_path, 'r', encoding='utf-8') as f:
@@ -81,6 +83,10 @@ def evaluate(start_year, end_year, csv_file=None):
         'lag1_rank', 'lag1_speed_index', 'interval'
     ]
     
+    if df.empty:
+        print("No data available for prediction after preprocessing.")
+        return
+
     print("Predicting...")
     # LightGBM Ranker returns 1D raw scores
     scores = model.predict(df[features])
@@ -93,13 +99,15 @@ def evaluate(start_year, end_year, csv_file=None):
         df['rank'] = pd.to_numeric(raw_df['rank'], errors='coerce')
         df['odds'] = pd.to_numeric(raw_df['odds'], errors='coerce').fillna(0)
         
-        # Group by race -> find horse with max score -> check if rank==1
+        # Metrics Initialization
         total_races = 0
         correct_top1 = 0
-        
-        # ROI Stats
         total_bet = 0
         total_return = 0
+
+        # Betting Strategy Logic
+        betting_type = config.get('betting_type', 'win')
+        print(f"Simulating Betting Strategy: {betting_type}")
         
         grouped = df.groupby('race_id')
         for rid, group in grouped:
@@ -110,30 +118,79 @@ def evaluate(start_year, end_year, csv_file=None):
             
             total_races += 1
             
-            # Predicted Winner
-            if group['score'].nunique() == 1:
-                 pred_winner = group.iloc[0] 
-            else:
-                 pred_winner = group.loc[group['score'].idxmax()]
+            # Sort by Predicted Score Descending
+            # If multiple models/scores exist, ensure we use the main one.
+            # Here 'score' is from model.predict
+            group_sorted = group.sort_values('score', ascending=False)
             
-            # Check accuracy
-            if pred_winner['rank'] == 1:
-                correct_top1 += 1
-                
-                # ROI (Bet 100 yen on Win)
-                if pred_winner['odds'] > 0:
-                    total_return += 100 * pred_winner['odds']
+            # Top predictions
+            top1 = group_sorted.iloc[0]
+            top2 = group_sorted.iloc[1] if len(group) >= 2 else None
+            top3 = group_sorted.iloc[2] if len(group) >= 3 else None
             
-            # Always bet 100
-            total_bet += 100
+            # Actual Ranks (Horse IDs or Umaban could be used, but we use rank column on the predicted rows)
+            # We need to know the actual rank of our predicted horses.
+            # group_sorted contains 'rank' column from raw_df
+            
+            hit = False
+            payout = 0
+            cost = 100 # Base cost
+            
+            if betting_type == 'win':
+                # Single Win on Top 1
+                if top1['rank'] == 1:
+                    hit = True
+                    payout = 100 * top1['odds']
+            
+            elif betting_type == 'place':
+                # Place bet on Top 1 (Rank 1-3)
+                if top1['rank'] <= 3:
+                    hit = True
+                    # Cannot calc payout without place odds
+                    
+            elif betting_type == 'trifecta':
+                # 3-Ren-Tan (Exact order 1-2-3)
+                if top1['rank'] == 1 and top2 and top2['rank'] == 2 and top3 and top3['rank'] == 3:
+                    hit = True
+                    
+            elif betting_type == 'box_trifecta':
+                # 3-Ren-Tan Box (Any order of top 3 horses in top 3 ranks)
+                if top1 and top2 and top3:
+                    ranks = [top1['rank'], top2['rank'], top3['rank']]
+                    if set(ranks) == {1, 2, 3}:
+                        hit = True
+                    cost = 600 # 6 combinations * 100
+                    
+            elif betting_type == 'uma_ren':
+                # Uma-Ren (Top 2 in 1st/2nd any order)
+                if top1 and top2:
+                    ranks = {top1['rank'], top2['rank']}
+                    if ranks == {1, 2}:
+                        hit = True
+                        
+            elif betting_type == 'wide':
+                # Wide (Top 2 both in Top 3)
+                if top1 and top2:
+                    if top1['rank'] <= 3 and top2['rank'] <= 3:
+                        hit = True
+            
+            if hit:
+                correct_top1 += 1 # Reusing variable as "Hits"
+                total_return += payout
+            
+            total_bet += cost
             
         acc = correct_top1 / total_races if total_races > 0 else 0
         roi = (total_return / total_bet) * 100 if total_bet > 0 else 0
         
         print(f"\n--- Evaluation Result ({start_year}-{end_year}) ---")
+        print(f"Strategy: {betting_type}")
         print(f"Total Races: {total_races}")
-        print(f"Accuracy@1 (Winner predicted correctly): {acc:.4f} ({correct_top1}/{total_races})")
-        print(f"ROI (Win Bet): {roi:.2f}% ({total_return:.0f}/{total_bet:.0f})")
+        print(f"Hit Rate: {acc:.4f} ({correct_top1}/{total_races})")
+        if betting_type == 'win':
+            print(f"ROI (Win Bet): {roi:.2f}% ({total_return:.0f}/{total_bet:.0f})")
+        else:
+            print(f"ROI: Cannot calculate (Missing odds for {betting_type})")
 
     else:
         print("Rank column not found in raw data, cannot evaluate metrics.")

@@ -6,12 +6,13 @@
 target_places:
   # - "06" # 中山
   # - "05" # 東京
+  - "06"
 
 # 対象レース番号
-# target_race_numbers: [11]
+target_race_numbers: [11]
 
 # ROIシミュレーション用の最低オッズフィルター
-min_odds: 1.0
+min_odds: 5.0
 
 # 賭け式 (シミュレーションタイプ)
 # 選択肢: 

@@ -5,6 +5,7 @@ The application is a horse racing prediction system consisting of two main compo
 
 ## Rule
 - チャットには日本語で応答してください。
+- 原則コメントも日本語で書いてください。
 - python実行時はvenv上で実行することを忘れないでください。
 - 実行しているOSを確認し、Windowsの場合はPowerShellを利用してください。
 - コードに修正を加える際、README.mdの更新が必要か確認してください。

@@ -99,11 +99,68 @@ def fetch_race_data(url):
                 race_data.append(horse)
                 
         print(f"Parsed {len(race_data)} horses.")
+        
+        # --- Fetch Real-time Odds via API ---
+        # Extract race_id from URL
+        import re
+        rid_match = re.search(r'race_id=(\d+)', url)
+        if rid_match:
+            rid = rid_match.group(1)
+            odds_map = fetch_odds(rid)
+            if odds_map:
+                print(f"Merged {len(odds_map)} odds records.")
+                for horse in race_data:
+                    u = horse.get("umaban")
+                    if u:
+                        u = u.strip()
+                        # API uses zero-padded strings (e.g. "01")
+                        if len(u) == 1 and u.isdigit():
+                            u = u.zfill(2)
+                    
+                    if u and u in odds_map:
+                        horse["odds"] = odds_map[u]
+        
         return race_data
 
     except Exception as e:
         print(f"Error in fetch_race_data: {e}")
         return []
+
+def fetch_odds(race_id):
+    """
+    Fetch real-time odds from Netkeiba API.
+    Returns dict: {umaban: win_odds}
+    """
+    # Type 1 = Tanfuku (Win/Place)
+    api_url = f"https://race.netkeiba.com/api/api_get_jra_odds.html?race_id={race_id}&type=1&action=init"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)",
+        "X-Requested-With": "XMLHttpRequest",
+        "Referer": f"https://race.netkeiba.com/odds/index.html?race_id={race_id}"
+    }
+    
+    try:
+        res = requests.get(api_url, headers=headers)
+        data = res.json()
+        
+        # 'middle' status also contains valid odds (interim)
+        valid_statuses = ['true', 'middle']
+        if data.get('status') in valid_statuses and 'data' in data:
+            # Structure: data['data']['odds']['1'][umaban] = [Win, Place, Pop...]
+            # '1' key under 'odds' likely represents the type (Tanfuku)
+            
+            odds_data = data['data'].get('odds', {}).get('1', {})
+            result = {}
+            for umaban, values in odds_data.items():
+                # values[0] is Win Odds
+                win_odds = values[0]
+                result[umaban] = win_odds
+            return result
+            
+    except Exception as e:
+        print(f"Odds API Error: {e}")
+        
+    return {}
 
 if __name__ == "__main__":
     # Test run
@@ -121,7 +178,7 @@ def search_races(date_str, place_code=None, race_no=None):
     
     Returns: List of dicts {'id': race_id, 'url': url, 'title': title}
     """
-    url = f"https://race.netkeiba.com/top/race_list.html?kaisai_date={date_str}"
+    url = f"https://race.netkeiba.com/top/race_list_sub.html?kaisai_date={date_str}"
     print(f"Searching races at: {url}")
     
     headers = {
@@ -130,25 +187,43 @@ def search_races(date_str, place_code=None, race_no=None):
     
     try:
         response = requests.get(url, headers=headers)
-        response.encoding = response.apparent_encoding
+        # race_list_sub is UTF-8, unlike main race pages
+        response.encoding = 'utf-8' 
+             
         soup = BeautifulSoup(response.text, "lxml")
         
         found_races = []
         
-        # Selector for race list
-        # Netkeiba top race list structure: dl.RaceList_DataList > dd > ul > li > a
-        # href example: ../race/shutuba.html?race_id=202606010801&rf=race_list
-        
-        links = soup.select("a[href*='race_id=']")
+        # Selector modification:
+        # Sometimes links are just "../race/..." or "/race/..."
+        # And sometimes soup selector "a[href*='race_id=']" is too strict if params are different.
+        # Let's try broader "a" and filter in loop.
+        links = soup.find_all("a")
         seen_ids = set()
         
         for a in links:
             href = a.get("href")
-            # Extract race_id
-            # href can be relative "../race/..." or absolute
-            if "race_id=" in href:
+            if not href: continue
+            
+            # Match race ID pattern in URL: /race/202606010801/ or ?race_id=2026...
+            # Shutuba Page search
+            
+            rid = None
+            if "race_id=" in href and "shutuba" in href:
+                 # Standard format in list
+                 try:
+                     rid = href.split("race_id=")[1].split("&")[0]
+                 except: pass
+            elif "/race/" in href:
+                 # /race/202601010101/ format
+                 parts = href.split("/")
+                 for p in parts:
+                     if p.isdigit() and len(p) == 12:
+                         rid = p
+                         break
+            
+            if rid:
                 try:
-                    rid = href.split("race_id=")[1].split("&")[0]
                     
                     if rid in seen_ids: continue
                     
