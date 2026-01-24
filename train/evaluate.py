@@ -88,9 +88,16 @@ def evaluate(start_year, end_year, csv_file=None):
         return
 
     print("Predicting...")
-    # LightGBM Ranker returns 1D raw scores
-    scores = model.predict(df[features])
-    df['score'] = scores
+    # LightGBM Multiclass returns (N, 4) probability matrix
+    # Class 0 is Rank 1 (Winner)
+    pred_probs = model.predict(df[features])
+    
+    # Use Probability of Winning (Class 0) as base score
+    # Handle both 1D (binary) and 2D (multiclass) outputs just in case
+    if pred_probs.ndim > 1:
+        df['win_prob'] = pred_probs[:, 0]
+    else:
+        df['win_prob'] = pred_probs
     
     # 5. Metrics (Ranking Accuracy)
     if 'rank' in raw_df.columns:
@@ -98,6 +105,10 @@ def evaluate(start_year, end_year, csv_file=None):
         df['race_id'] = raw_df['race_id']
         df['rank'] = pd.to_numeric(raw_df['rank'], errors='coerce')
         df['odds'] = pd.to_numeric(raw_df['odds'], errors='coerce').fillna(0)
+        
+        # Calculate Expectation Score: (Win Prob)^4 * Odds
+        # This highlights horses with high win probability AND decent return
+        df['score'] = (df['win_prob'] ** 4) * df['odds']
         
         # Metrics Initialization
         total_races = 0

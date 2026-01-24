@@ -6,6 +6,7 @@ import os
 import random
 from tqdm import tqdm
 from . import settings
+import re
 
 def fetch_html(url):
     """Fetches HTML with simple retry and random sleep."""
@@ -24,62 +25,55 @@ def fetch_html(url):
 def get_race_ids(year, month):
     """
     Fetches race IDs for a given year and month.
-    URL format: https://race.netkeiba.com/top/calendar.html?year={year}&month={month}
-    This is a simplification; handling all race IDs often requires parsing calendar pages.
+    Uses race.netkeiba.com/top/calendar.html because it reliably lists specific dates,
+    unlike db.netkeiba.com/top/calendar.html which can be messy.
     """
-    # Note: Netkeiba's calendar structure is complex.
-    # For this implementation, we will assume a simplified list or limited scope 
-    # to demonstrate functionality without overloading the server or complexity.
-    # In a full-scale app, we would parse https://db.netkeiba.com/?pid=race_list&year={}&month={}
-    
-    url = f"https://db.netkeiba.com/?pid=race_list&year={year}&month={month}"
+    # 1. Get Calendar Page to find dates
+    url = f"https://race.netkeiba.com/top/calendar.html?year={year}&month={month}"
     html = fetch_html(url)
     if not html: return []
     
     soup = BeautifulSoup(html, "lxml")
-    race_ids = []
+    date_urls = set()
+    target_ym = f"{year}{month:02}"
     
-    # 1. Find all date links (e.g. /race/list/20230105/ or ?pid=race_list&date=20230105)
-    date_links = set()
+    # 2. Extract race dates (kaisai_date=YYYYMMDD)
     for a in soup.find_all("a"):
         href = a.get("href")
         if not href: continue
         
-        # New pattern: /race/list/20230105/
-        if "/race/list/20" in href:
-             # Normalize
-             if href.startswith("/"):
-                 href = "https://db.netkeiba.com" + href
-             date_links.add(href)
-             
-        # Old pattern: pid=race_list&date=
-        elif "pid=race_list&date=" in href:
-            if href.startswith("/"):
-                href = "https://db.netkeiba.com" + href
-            elif not href.startswith("http"):
-                href = "https://db.netkeiba.com/?" + href.split("?")[-1]
-            date_links.add(href)
-            
-    print(f"  Found {len(date_links)} race days in {year}-{month}.")
+        # Format usually: ../top/race_list.html?kaisai_date=20230401
+        if "kaisai_date" in href:
+             match = re.search(r"kaisai_date=(\d{8})", href)
+             if match:
+                 d_str = match.group(1)
+                 # Strict filter to ensure we stay within the requested month
+                 # (Calendar view might show adjacent days)
+                 if d_str.startswith(target_ym):
+                     # Construct db.netkeiba.com list URL
+                     # https://db.netkeiba.com/race/list/YYYYMMDD/
+                     list_url = f"https://db.netkeiba.com/race/list/{d_str}/"
+                     date_urls.add(list_url)
     
-    # 2. Visit each date page to get race IDs
-    for date_url in sorted(list(date_links)):
-        # print(f"  Fetching day: {date_url}")
+    print(f"  Found {len(date_urls)} race days in {year}-{month} (from race.netkeiba.com).")
+    
+    race_ids = []
+    
+    # 3. Visit each daily list page on DB to get race IDs
+    for date_url in sorted(list(date_urls)):
         d_html = fetch_html(date_url)
         if not d_html: continue
         
         d_soup = BeautifulSoup(d_html, "lxml")
         
-        # In the daily list, links are standard /race/ID/
-        # Check both /race/ and /race/sum/ if any
-        # Also avoid capturing the date list itself if it matches /race/something
+        # Link format on list page: /race/202306030301/
         for a in d_soup.select("a[href^='/race/']"):
             href = a.get("href")
-            # /race/202306010101/
-            parts = href.split("/")
-            # filter out /race/list/...
+            # Filter out non-race links
             if "list" in href: continue
             
+            parts = href.split("/")
+            # Expect /race/ID/
             if len(parts) >= 3:
                 rid = parts[2]
                 if rid.isdigit() and len(rid) == 12:

@@ -113,11 +113,37 @@ def predict(race_data):
             'lag1_rank', 'lag1_speed_index', 'interval'
         ]
 
-        # LightGBM Ranker returns raw relevance scores (logits/unbounded)
-        # Higher score = Better rank (predicted winner)
-        df['score'] = model.predict(df[features])
+        # LightGBM Multiclass returns (N, 4) probability matrix
+        pred_probs = model.predict(df[features])
+        
+        # Extract Win Probability (Class 0)
+        if pred_probs.ndim > 1:
+            df['win_prob'] = pred_probs[:, 0]
+        else:
+            df['win_prob'] = pred_probs
+
+        # Clean Odds for calculation
+        def parse_odds(o):
+            try:
+                return float(o)
+            except:
+                return 0.0
+        df['odds_val'] = df['odds'].apply(parse_odds)
+
+        # Calculate Score: (Win Prob)^4 * Odds
+        # If odds are missing (0.0), score becomes 0.
+        # Fallback to win_prob if odds are missing? 
+        # Strategy implies odds are crucial. If odds 0 (e.g. new race w/o odds), 
+        # this strategy fails. Assuming odds exist or fallback to prob.
+        
+        # Hybrid Score: Use Expectation if odds exist, else raw prob
+        df['score'] = df.apply(
+            lambda x: (x['win_prob'] ** 4) * x['odds_val'] if x['odds_val'] > 0 else x['win_prob'], 
+            axis=1
+        )
 
         # Normalize scores to 0-1 range for better readability
+        # Note: Expectation scores can be widely distributed
         min_score = df['score'].min()
         max_score = df['score'].max()
         if max_score > min_score:
@@ -133,7 +159,7 @@ def predict(race_data):
         context_weather = race_data[0].get('weather', 'Unknown')
         context_distance = race_data[0].get('distance', 'Unknown')
 
-        result_lines = ["Prediction Ranking (Normalized Score):"]
+        result_lines = ["Prediction Ranking (Score = Prob^4 * Odds):"]
         result_lines.append(f"Context: {context_weather} / {context_distance}m")
         result_lines.append("-" * 40)
 
@@ -146,8 +172,11 @@ def predict(race_data):
 
             # Show odds if available, else ---
             odds_str = str(row.get('odds', '---.-'))
-
-            line = f"{symbol} {i+1}. {row['name']} (Odds: {odds_str}, Score: {row['score']:.4f})"
+            
+            # Show Probability as well for transparency
+            prob_pct = row['win_prob'] * 100
+            
+            line = f"{symbol} {i+1}. {row['name']} (Odds: {odds_str}, Win%: {prob_pct:.1f}%, Score: {row['score']:.4f})"
             result_lines.append(line)
 
         return "\n".join(result_lines)
