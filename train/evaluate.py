@@ -37,6 +37,39 @@ def evaluate(start_year, end_year, csv_file=None):
         print("No data found.")
         return
 
+    # --- Filtering based on betting.yaml ---
+    import yaml
+    yaml_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'betting.yaml')
+    if os.path.exists(yaml_path):
+        print(f"Loading filters from {yaml_path}...")
+        with open(yaml_path, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+            
+        if config:
+            # Filter by Place Code
+            # Race ID: YYYY PP K D RR (String)
+            # Ensure race_id is string
+            raw_df['race_id'] = raw_df['race_id'].astype(str)
+            
+            target_places = config.get('target_places', [])
+            if target_places:
+                # Place code is index 4,5 (0-based) -> chars at 4:6? 
+                # e.g. 2023 06 ... -> 2023 is 0:4, 06 is 4:6
+                print(f"Filtering for places: {target_places}")
+                # Extract place code
+                raw_df['place_code'] = raw_df['race_id'].str[4:6]
+                raw_df = raw_df[raw_df['place_code'].isin([str(p).zfill(2) for p in target_places])]
+                print(f"  Rows after place filter: {len(raw_df)}")
+
+            # Filter by Race Number
+            target_races = config.get('target_race_numbers', [])
+            if target_races:
+                # Last 2 digits? usually.
+                print(f"Filtering for race numbers: {target_races}")
+                raw_df['race_no'] = raw_df['race_id'].str[-2:].astype(int)
+                raw_df = raw_df[raw_df['race_no'].isin(target_races)]
+                print(f"  Rows after race_no filter: {len(raw_df)}")
+
     # 3. Transform (NOT Fit)
     print("Preprocessing (Transform mode)...")
     df = preprocess.transform(raw_df, artifacts)
