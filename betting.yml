@@ -1,0 +1,24 @@
+# 予想・評価設定
+
+# 対象競馬場 (JRA競馬場コード)
+# 01: 札幌, 02: 函館, 03: 福島, 04: 新潟, 05: 東京, 06: 中山
+# 07: 中京, 08: 京都, 09: 阪神, 10: 小倉
+target_places:
+  # - "06" # 中山
+  # - "05" # 東京
+
+# 対象レース番号
+# target_race_numbers: [11]
+
+# ROIシミュレーション用の最低オッズフィルター
+min_odds: 1.0
+
+# 賭け式 (シミュレーションタイプ)
+# 選択肢: 
+#   win:          単勝：Single Win bet on Top 1 prediction (Calculates ROI)
+#   place:        複勝：Place bet on Top 1 prediction (Hit Rate only, ROI requires place odds)
+#   trifecta:     三連単：Top 3 predictions must match Rank 1-2-3 in exact order (Hit Rate only)
+#   box_trifecta: 三連複：Top 3 predictions must match Rank 1-2-3 in any order (Hit Rate only)
+#   uma_ren:      馬連：Top 2 predictions match Rank 1-2 in any order (Hit Rate only)
+#   wide:         ワイド：Top 2 predictions match Rank 1-3 in any order (Hit Rate only)
+betting_type: win
