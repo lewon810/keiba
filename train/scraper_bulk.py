@@ -169,6 +169,33 @@ def scrape_race_data(race_id):
         if len(cols) < 10: continue
         
         try:
+            # Extract Trainer (Index 18 usually)
+            trainer_id = ""
+            trainer_name = ""
+            if len(cols) > 18:
+                trainer_node = cols[18].select_one("a")
+                if trainer_node:
+                    trainer_id = trainer_node.get("href").split("/")[-2]
+                    trainer_name = trainer_node.get_text(strip=True)
+                else:
+                    trainer_name = cols[18].get_text(strip=True)
+            
+            # Extract Horse Weight (Index 14)
+            # Format: 484(+2) or 484(0) or 計不
+            horse_weight = ""
+            weight_diff = ""
+            if len(cols) > 14:
+                hw_text = cols[14].get_text(strip=True)
+                # Parse 484(+2)
+                import re
+                match = re.match(r"(\d+)\(([-+]?\d+)\)", hw_text)
+                if match:
+                    horse_weight = match.group(1)
+                    weight_diff = match.group(2)
+                elif hw_text.isdigit():
+                    horse_weight = hw_text
+                    weight_diff = "0"
+
             res = {
                 "race_id": race_id,
                 **race_info, # Update with metadata
@@ -179,6 +206,10 @@ def scrape_race_data(race_id):
                 "horse_id": cols[3].select_one("a").get("href").split("/")[-2] if cols[3].select_one("a") else "",
                 "jockey": cols[6].get_text(strip=True),
                 "jockey_id": cols[6].select_one("a").get("href").split("/")[-2] if cols[6].select_one("a") else "",
+                "trainer": trainer_name,
+                "trainer_id": trainer_id,
+                "horse_weight": horse_weight,
+                "weight_diff": weight_diff,
                 "time": cols[7].get_text(strip=True),
                 "odds": cols[12].get_text(strip=True),
                 "popularity": cols[13].get_text(strip=True)
