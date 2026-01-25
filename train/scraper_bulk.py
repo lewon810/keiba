@@ -223,32 +223,33 @@ def scrape_race_data(race_id):
 def bulk_scrape(year_start, year_end, month_start=1, month_end=12, force=False):
     """
     Main function to scrape a range of data.
+    Saves incrementally to avoid data loss.
     """
-    all_data = [] # Keep accumulating if needed for return, or verify memory usage
-    
     for year in range(year_start, year_end + 1):
-        year_data = []
-        existing_rids = set()
         save_path = os.path.join(settings.RAW_DATA_DIR, f"results_{year}.csv")
-
-        # Check for existing data if not forced
+        existing_rids = set()
+        
+        # Check for existing data
         if not force and os.path.exists(save_path):
             try:
-                df_existing = pd.read_csv(save_path)
-                # Ensure race_id is string
-                if 'race_id' in df_existing.columns:
-                    existing_rids = set(df_existing['race_id'].astype(str))
+                # Only read race_ids to save memory/time
+                df_existing = pd.read_csv(save_path, usecols=['race_id'])
+                existing_rids = set(df_existing['race_id'].astype(str))
                 print(f"File {save_path} exists. Found {len(existing_rids)} existing races.")
-                
-                # If we are just reading, we might want to keep existing data in memory if we plan to return it
-                # But here we focus on appending new data. 
-                # Strategy: Load existing data into year_data so we can re-save the complete set later?
-                # OR: append mode?
-                # Safer: Load all existing into year_data, then append new ones, then save valid complete file.
-                year_data = df_existing.to_dict('records')
             except Exception as e:
                 print(f"Error reading existing file {save_path}: {e}")
+        elif force and os.path.exists(save_path):
+            # If forced, remove existing file to start fresh
+            try:
+                os.remove(save_path)
+                print(f"Deleted existing file {save_path} (Force=True)")
+            except:
+                pass
 
+        # Prepare for incremental write
+        buffer = []
+        BUFFER_SIZE = 50
+        
         for month in range(month_start, month_end + 1):
             print(f"Scraping {year}-{month}...")
             rids = get_race_ids(year, month)
@@ -263,20 +264,33 @@ def bulk_scrape(year_start, year_end, month_start=1, month_end=12, force=False):
             for rid in tqdm(new_rids):
                 data = scrape_race_data(rid)
                 if data:
-                    year_data.extend(data)
-                    # Add to existing_rids to avoid duplicates if month ranges overlap logic somehow? 
-                    # (Logic handles distinct rids)
-        
-        # Save per year
-        if year_data:
-            df_year = pd.DataFrame(year_data)
-            # Ensure safe write
-            os.makedirs(os.path.dirname(save_path), exist_ok=True)
-            df_year.to_csv(save_path, index=False)
-            print(f"Saved {len(df_year)} rows to {save_path}")
-            all_data.extend(year_data)
+                    buffer.extend(data)
+                    existing_rids.add(rid) # Add to tracked IDs
+                
+                # Incremental Save
+                if len(buffer) >= BUFFER_SIZE:
+                    _save_buffer(buffer, save_path)
+                    buffer = [] # Clear buffer
             
-    return pd.DataFrame(all_data)
+            # Save remaining in buffer at end of month
+            if buffer:
+                _save_buffer(buffer, save_path)
+                buffer = []
+
+def _save_buffer(data, path):
+    if not data: return
+    
+    df = pd.DataFrame(data)
+    # Check if file exists to determine header
+    file_exists = os.path.exists(path)
+    
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        # Append mode
+        df.to_csv(path, mode='a', header=not file_exists, index=False, encoding='utf-8')
+        # print(f"Saved {len(df)} rows.")
+    except Exception as e:
+        print(f"Error saving to {path}: {e}")
 
 if __name__ == "__main__":
     import argparse
