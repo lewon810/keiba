@@ -30,9 +30,9 @@ def train_model(start_year, end_year):
     
     # 3. Train
     features = [
-        'jockey_win_rate', 'horse_id', 'jockey_id', 'waku', 'umaban',
-        'course_type', 'distance', 'weather', 'condition',
-        'lag1_rank', 'lag1_speed_index', 'interval'
+        'jockey_win_rate', 'trainer_win_rate', 'horse_id', 'jockey_id', 'trainer_id',
+        'waku', 'umaban', 'course_type', 'distance', 'weather', 'condition',
+        'lag1_rank', 'lag1_speed_index', 'interval', 'weight_diff'
     ]
     target = 'rank_class'
     

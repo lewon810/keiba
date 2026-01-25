@@ -147,10 +147,31 @@ def preprocess(df):
     final_jockey_stats['rate'] = final_jockey_stats['sum'] / final_jockey_stats['count']
     jockey_win_rate_map = final_jockey_stats['rate'].to_dict()
     
+    # Target Encoding (Trainer) - Expanding Window
+    print("Calculating expanding window stats for Trainer Win Rate...")
+    if 'trainer_id' not in df.columns:
+        df['trainer_id'] = "unknown"
+        
+    df['trainer_win_rate'] = df.groupby('trainer_id')['is_win'].transform(
+        lambda x: x.shift(1).expanding().mean()
+    ).fillna(0)
+    
+    final_trainer_stats = df.groupby('trainer_id')['is_win'].agg(['count', 'sum'])
+    final_trainer_stats['rate'] = final_trainer_stats['sum'] / final_trainer_stats['count']
+    trainer_win_rate_map = final_trainer_stats['rate'].to_dict()
+
+    # Feature: Weight Diff (Clean)
+    # 484(+2) -> +2 extracted by scraper as 'weight_diff'. Ensure numeric.
+    if 'weight_diff' not in df.columns:
+        df['weight_diff'] = 0
+    
+    df['weight_diff'] = pd.to_numeric(df['weight_diff'], errors='coerce').fillna(0)
+
     # Artifacts storage
     from sklearn.preprocessing import LabelEncoder
     artifacts = {
         'jockey_win_rate': jockey_win_rate_map,
+        'trainer_win_rate': trainer_win_rate_map,
         'course_stats': None # Placeholder
     }
     
@@ -237,17 +258,27 @@ def transform(df, artifacts):
     df['interval'] = (df['date'] - df.groupby('horse_id')['date'].shift(1)).dt.days.fillna(365)
 
     # Encoding using Artifacts
-    if 'jockey_win_rate' in artifacts:
-        jockey_map = artifacts['jockey_win_rate']
-        # Map with type safety fallback
-        def get_rate(jid):
-            if jid in jockey_map: return jockey_map[jid]
-            # Try str/int conversions
-            if str(jid) in jockey_map: return jockey_map[str(jid)]
-            return 0.0
-        df['jockey_win_rate'] = df['jockey_id'].apply(get_rate)
+    for col, enc_map in [('jockey_win_rate', 'jockey_id'), ('trainer_win_rate', 'trainer_id')]:
+        if col in artifacts:
+            map_dict = artifacts[col]
+            # Map with type safety fallback
+            def get_rate(key, m=map_dict):
+                if key in m: return m[key]
+                if str(key) in m: return m[str(key)]
+                return 0.0
+            id_col = enc_map
+            if id_col in df.columns:
+                df[col] = df[id_col].apply(get_rate)
+            else:
+                df[col] = 0
+        else:
+            df[col] = 0
+            
+    # Weight Diff
+    if 'weight_diff' in df.columns:
+        df['weight_diff'] = pd.to_numeric(df['weight_diff'], errors='coerce').fillna(0)
     else:
-        df['jockey_win_rate'] = 0
+        df['weight_diff'] = 0
 
     # Label Encoders
     for col in settings.CATEGORY_COLS:
