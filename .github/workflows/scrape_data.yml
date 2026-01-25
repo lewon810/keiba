@@ -62,7 +62,7 @@ jobs:
 
       - name: Run Scraper for ${{ matrix.year }}
         run: |
-          python -m train.scraper_bulk --start ${{ matrix.year }} --end ${{ matrix.year }}
+          python -m train.scraper_bulk --start ${{ matrix.year }} --end ${{ matrix.year }} --force
 
       - name: Commit and Push results
         env:
