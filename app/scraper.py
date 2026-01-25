@@ -209,8 +209,9 @@ def search_races(date_str, place_code=None, race_no=None):
             # Shutuba Page search
             
             rid = None
-            if "race_id=" in href and "shutuba" in href:
-                 # Standard format in list
+            if "race_id=" in href:
+                 # Support both shutuba.html and result.html
+                 # href format: ../race/result.html?race_id=202306010201&rf=race_list
                  try:
                      rid = href.split("race_id=")[1].split("&")[0]
                  except: pass

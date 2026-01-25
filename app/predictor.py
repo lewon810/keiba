@@ -12,9 +12,10 @@ except ImportError:
         MODEL_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'train', 'data', 'model')
         MODEL_PATH = os.path.join(MODEL_DIR, 'model_lgb.pkl')
 
-def predict(race_data):
+def predict(race_data, return_df=False):
     """
     Takes race data (list of dicts) and returns predictions using the trained model.
+    If return_df is True, returns the pandas DataFrame with scores.
     """
     if not race_data:
         return "No data to predict."
@@ -144,15 +145,15 @@ def predict(race_data):
 
         # Normalize scores to 0-1 range for better readability
         # Note: Expectation scores can be widely distributed
-        min_score = df['score'].min()
-        max_score = df['score'].max()
-        if max_score > min_score:
-            df['score'] = (df['score'] - min_score) / (max_score - min_score)
-        else:
-            df['score'] = 0.5  # Handle case where all scores are the same
+        # User requested RAW score: P^4 * Odds
+        # normalization removed
+        pass
 
         # Rank by Score (Descending)
         df = df.sort_values('score', ascending=False)
+        
+        if return_df:
+            return df
 
         # 6. Format Output
         # Get context from original race_data to avoid showing encoded integers

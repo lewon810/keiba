@@ -33,7 +33,7 @@ The application is a horse racing prediction system consisting of two main compo
 ### 2. Learn (Machine Learning) - `train/`
 - **Role**: Model training and data construction.
 - **Functionality**:
-    - Implements machine learning logic based on the theory described in `docs/競馬予測論文の探索と解説.docx`.
+    - Implements machine learning logic based on the theory described in `docs/strategy.html`.
     - **Algorithm**: LightGBM (Multi-class classification: Winner, Placed, Board, Lost).
     - **Features**: Speed Index (standardized), Target Encoding (Jockey/Sire), Lag features (past performance), Contextual features.
     - **Strategy**: "Power of 4" (Score = $P^4 \times Odds$).
@@ -41,7 +41,7 @@ The application is a horse racing prediction system consisting of two main compo
     - **Validation**: Time-series split (Train -> Valid -> Test).
     - constructs training data.
     - Outputs a trained model or reference data for the `prediction` component.
-- **Theory Source**: `docs/競馬予測論文の探索と解説.docx`
+- **Theory Source**: `docs/theory.html`
 
 ## Directory Structure
 ```

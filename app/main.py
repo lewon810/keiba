@@ -151,8 +151,62 @@ class KeibaApp(ctk.CTk):
         self.output_textbox.see("end")
 
 if __name__ == "__main__":
-    ctk.set_appearance_mode("System")
-    ctk.set_default_color_theme("blue")
-    
-    app = KeibaApp()
-    app.mainloop()
+    import argparse
+    import sys
+
+    # Check for CLI arguments
+    parser = argparse.ArgumentParser(description="Keiba Prediction App")
+    parser.add_argument("url", nargs="?", help="Netkeiba race URL to predict")
+    parser.add_argument("--date", help="Date to search races (YYYYMMDD)")
+    args = parser.parse_args()
+
+    def run_prediction(url, title=None):
+        try:
+            if title:
+                print(f"\nTarget: {title}")
+                print(f"URL: {url}")
+            else:
+                print(f"Predicting for URL: {url}")
+            
+            race_data = scraper.fetch_race_data(url)
+            if not race_data:
+                print("Failed to fetch data.")
+                return
+            
+            result = predictor.predict(race_data)
+            print("-" * 50)
+            print(result)
+            print("-" * 50)
+        except Exception as e:
+            print(f"Error: {e}")
+            import traceback
+            traceback.print_exc()
+
+    if args.url:
+        # Single URL Mode
+        run_prediction(args.url)
+        
+    elif args.date:
+        # Date Search Mode
+        print(f"Searching races for date: {args.date}...")
+        try:
+            races = scraper.search_races(args.date)
+            if not races:
+                print("No races found.")
+                sys.exit(0)
+            
+            print(f"Found {len(races)} races.")
+            for race in races:
+                run_prediction(race['url'], title=race['title'])
+                
+        except Exception as e:
+            print(f"Search Error: {e}")
+            sys.exit(1)
+
+    else:
+        # GUI Mode
+        ctk.set_appearance_mode("System")
+        ctk.set_default_color_theme("blue")
+        
+        app = KeibaApp()
+        app.mainloop()

@@ -9,10 +9,22 @@ target_places:
   - "06"
 
 # 対象レース番号
-target_race_numbers: [11]
+target_race_numbers:
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 6
+  - 7
+  - 8
+  - 9
+  - 10
+  - 11
+  - 12
 
 # ROIシミュレーション用の最低オッズフィルター
-min_odds: 5.0
+min_odds: 1.0
 
 # 賭け式 (シミュレーションタイプ)
 # 選択肢: 

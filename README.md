@@ -58,6 +58,11 @@ python -m app.main
 - **Search Mode**: 日にちを指定し「Search & Predict」を押すと、その日の全レースを予想します。
 - **Direct URL**: NetkeibaのURLを直接貼り付けて予想します。
 
+**CLI - Date Search & Batch Prediction:**
+```bash
+python -m app.main --date 20240101
+```
+
 ### 2. モデル精度を検証する (Evaluation)
 `betting.yml` で条件（対象競馬場など）や**賭け式**を設定し、バックテストを実行します。
 

@@ -189,7 +189,7 @@ def scrape_race_data(race_id):
             
     return results
 
-def bulk_scrape(year_start, year_end, month_start=1, month_end=12):
+def bulk_scrape(year_start, year_end, month_start=1, month_end=12, force=False):
     """
     Main function to scrape a range of data.
     """
@@ -197,20 +197,50 @@ def bulk_scrape(year_start, year_end, month_start=1, month_end=12):
     
     for year in range(year_start, year_end + 1):
         year_data = []
+        existing_rids = set()
+        save_path = os.path.join(settings.RAW_DATA_DIR, f"results_{year}.csv")
+
+        # Check for existing data if not forced
+        if not force and os.path.exists(save_path):
+            try:
+                df_existing = pd.read_csv(save_path)
+                # Ensure race_id is string
+                if 'race_id' in df_existing.columns:
+                    existing_rids = set(df_existing['race_id'].astype(str))
+                print(f"File {save_path} exists. Found {len(existing_rids)} existing races.")
+                
+                # If we are just reading, we might want to keep existing data in memory if we plan to return it
+                # But here we focus on appending new data. 
+                # Strategy: Load existing data into year_data so we can re-save the complete set later?
+                # OR: append mode?
+                # Safer: Load all existing into year_data, then append new ones, then save valid complete file.
+                year_data = df_existing.to_dict('records')
+            except Exception as e:
+                print(f"Error reading existing file {save_path}: {e}")
+
         for month in range(month_start, month_end + 1):
             print(f"Scraping {year}-{month}...")
             rids = get_race_ids(year, month)
-            print(f"Found {len(rids)} races.")
             
-            for rid in tqdm(rids):
+            # Filter out existing
+            new_rids = [rid for rid in rids if rid not in existing_rids]
+            print(f"Found {len(rids)} races ({len(new_rids)} new).")
+            
+            if not new_rids:
+                continue
+
+            for rid in tqdm(new_rids):
                 data = scrape_race_data(rid)
                 if data:
                     year_data.extend(data)
+                    # Add to existing_rids to avoid duplicates if month ranges overlap logic somehow? 
+                    # (Logic handles distinct rids)
         
         # Save per year
         if year_data:
             df_year = pd.DataFrame(year_data)
-            save_path = os.path.join(settings.RAW_DATA_DIR, f"results_{year}.csv")
+            # Ensure safe write
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
             df_year.to_csv(save_path, index=False)
             print(f"Saved {len(df_year)} rows to {save_path}")
             all_data.extend(year_data)
@@ -224,7 +254,8 @@ if __name__ == "__main__":
     parser.add_argument("--end", type=int, default=2023, help="End year")
     parser.add_argument("--month_start", type=int, default=1, help="Start month")
     parser.add_argument("--month_end", type=int, default=12, help="End month")
+    parser.add_argument("--force", action="store_true", help="Force overwrite existing data")
     args = parser.parse_args()
     
-    print(f"Starting scrape from {args.start}-{args.month_start} to {args.end}-{args.month_end}...")
-    bulk_scrape(args.start, args.end, args.month_start, args.month_end)
+    print(f"Starting scrape from {args.start}-{args.month_start} to {args.end}-{args.month_end} (Force: {args.force})...")
+    bulk_scrape(args.start, args.end, args.month_start, args.month_end, args.force)
