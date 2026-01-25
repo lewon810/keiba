@@ -6,13 +6,13 @@ from . import settings
 from . import preprocess
 from . import scraper_bulk
 
-def evaluate(start_year, end_year, csv_file=None):
+def evaluate(start_year, end_year, csv_file=None, min_score=None):
     print(f"--- Evaluaton Mode: {start_year}-{end_year} ---")
     
     # 1. Load Model & Artifacts
     if not os.path.exists(settings.MODEL_PATH):
         print("Model not found. Run learn.train first.")
-        return
+        return {}
 
     print(f"Loading model from {settings.MODEL_PATH}...")
     model = joblib.load(settings.MODEL_PATH)
@@ -35,11 +35,11 @@ def evaluate(start_year, end_year, csv_file=None):
     
     if raw_df.empty:
         print("No data found.")
-        return
+        return {}
 
-    # --- Filtering based on betting.yml ---
+    # --- Filtering based on evaluate_settings.yml ---
     import yaml
-    yaml_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'betting.yml')
+    yaml_path = os.path.join(os.path.dirname(__file__), 'evaluate_settings.yml')
     config = {}
     
     if os.path.exists(yaml_path):
@@ -85,7 +85,7 @@ def evaluate(start_year, end_year, csv_file=None):
     
     if df.empty:
         print("No data available for prediction after preprocessing.")
-        return
+        return {}
 
     print("Predicting...")
     # LightGBM Multiclass returns (N, 4) probability matrix
@@ -100,6 +100,7 @@ def evaluate(start_year, end_year, csv_file=None):
         df['win_prob'] = pred_probs
     
     # 5. Metrics (Ranking Accuracy)
+    metrics = {}
     if 'rank' in raw_df.columns:
         # Attach raw info for evaluation
         df['race_id'] = raw_df['race_id']
@@ -118,7 +119,15 @@ def evaluate(start_year, end_year, csv_file=None):
 
         # Betting Strategy Logic
         betting_type = config.get('betting_type', 'win')
-        print(f"Simulating Betting Strategy: {betting_type}")
+        
+        # Determine effective min_roi_score
+        config_min_score = config.get('min_betting_roi_score', 0.0)
+        min_roi_score = min_score if min_score is not None else config_min_score
+        
+        print(f"Simulating Betting Strategy: {betting_type} (Min Score: {min_roi_score})")
+        
+        # Counters for races we actually bet on
+        bet_races = 0
         
         grouped = df.groupby('race_id')
         for rid, group in grouped:
@@ -127,7 +136,9 @@ def evaluate(start_year, end_year, csv_file=None):
             # Skip if no rank=1 in group (anomaly)
             if not (group['rank'] == 1).any(): continue
             
-            total_races += 1
+            # total_races += 1 # This was counting all valid races in data. Moving this meaning to bet_races or keep as denominator?
+            # Usually for strategy evaluation, we care about Hit Rate = Hits / Bets.
+            # So I will use bet_races as the denominator for stats.
             
             # Sort by Predicted Score Descending
             # If multiple models/scores exist, ensure we use the main one.
@@ -138,6 +149,12 @@ def evaluate(start_year, end_year, csv_file=None):
             top1 = group_sorted.iloc[0]
             top2 = group_sorted.iloc[1] if len(group) >= 2 else None
             top3 = group_sorted.iloc[2] if len(group) >= 3 else None
+            
+            # Filter by Min ROI Score (Check Top1)
+            if top1['score'] < min_roi_score:
+                continue
+            
+            bet_races += 1
             
             # Actual Ranks (Horse IDs or Umaban could be used, but we use rank column on the predicted rows)
             # We need to know the actual rank of our predicted horses.
@@ -191,26 +208,39 @@ def evaluate(start_year, end_year, csv_file=None):
             
             total_bet += cost
             
-        acc = correct_top1 / total_races if total_races > 0 else 0
+        acc = correct_top1 / bet_races if bet_races > 0 else 0
         roi = (total_return / total_bet) * 100 if total_bet > 0 else 0
         
         print(f"\n--- Evaluation Result ({start_year}-{end_year}) ---")
         print(f"Strategy: {betting_type}")
-        print(f"Total Races: {total_races}")
-        print(f"Hit Rate: {acc:.4f} ({correct_top1}/{total_races})")
+        print(f"Bet Races: {bet_races} (Skipped: {len(grouped) - bet_races})")
+        print(f"Hit Rate: {acc:.4f} ({correct_top1}/{bet_races})")
         if betting_type == 'win':
             print(f"ROI (Win Bet): {roi:.2f}% ({total_return:.0f}/{total_bet:.0f})")
         else:
             print(f"ROI: Cannot calculate (Missing odds for {betting_type})")
 
+        metrics = {
+            'betting_type': betting_type,
+            'total_races': len(grouped),
+            'bet_races': bet_races,
+            'hit_rate': acc,
+            'roi': roi,
+            'total_return': total_return,
+            'total_bet': total_bet
+        }
+
     else:
         print("Rank column not found in raw data, cannot evaluate metrics.")
+    
+    return metrics
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--start", type=int, default=2025)
     parser.add_argument("--end", type=int, default=2025)
     parser.add_argument("--csv", type=str, help="Path to existing CSV file")
+    parser.add_argument("--min_score", type=float, help="Override min_betting_roi_score")
     args = parser.parse_args()
     
-    evaluate(args.start, args.end, csv_file=args.csv)
+    evaluate(args.start, args.end, csv_file=args.csv, min_score=args.min_score)

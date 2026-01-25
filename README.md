@@ -15,7 +15,7 @@ LightGBMを用いた多クラス分類モデルにより、単なる的中率だ
     - **ベッティング戦略**: 「確率の4乗 × オッズ」によるスコアリングで、期待値の高い馬を選抜。
 
 - **Backtesting & Verification**:
-    - `betting.yaml` による条件指定（競馬場・レース番号）が可能なバックテスト機能。
+    - `train/evaluate_settings.yml` による条件指定（競馬場・レース番号）が可能なバックテスト機能。
     
 - **Multi-Mode Prediction**:
     - **Search Mode**: 日付・競馬場を指定してレースを検索・予想。
@@ -64,10 +64,10 @@ python -m app.main --date 20240101
 ```
 
 ### 2. モデル精度を検証する (Evaluation)
-`betting.yml` で条件（対象競馬場など）や**賭け式**を設定し、バックテストを実行します。
+`train/evaluate_settings.yml` で条件（対象競馬場など）や**賭け式**を設定し、バックテストを実行します。
 
 ```yaml
-# betting.yml example
+# train/evaluate_settings.yml example
 target_places: ["06"] # Nakayama
 betting_type: win     # win, place, trifecta, box_trifecta, uma_ren, wide
 ```
@@ -112,8 +112,8 @@ keiba/
 ├── train/                # 機械学習パイプライン (Training)
 │   ├── scraper_bulk.py   # 過去ログ収集スクレイパー
 │   ├── evaluate.py       # 精度検証・バックテスト
+│   ├── evaluate_settings.yml # 検証用設定ファイル
 │   └── data/             # データ置き場
-├── betting.yaml          # 検証用設定ファイル (New!)
 └── requirements.txt      
 ```
 

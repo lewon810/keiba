@@ -1,23 +1,7 @@
 # System Requirements
 
 ## Overview
-The application is a horse racing prediction system consisting of two main components: `prediction` and `learn`.
-
-## Rule
-- チャットには日本語で応答してください。
-- 原則コメントも日本語で書いてください。
-- python実行時はvenv上で実行することを忘れないでください。
-- 実行しているOSを確認し、Windowsの場合はPowerShellを利用してください。
-- コードに修正を加える際、README.mdの更新が必要か確認してください。
-- ディレクトリやファイル名を変更した場合はREADME更新とtestがPASSすることを確認してください。
-- コードに修正を加える際、以下のソースコードの動作を保証するようにtestを実行・更新してください。
-    - `train/evaluate_model.py`
-    - `train/evaluate.py`
-    - `train/preprocess.py`
-    - `train/train.py`
-    - `app/scraper.py`
-    - `app/predictor.py`
-    - `app/main.py`  
+The application is a horse racing prediction system consisting of two main components: `app/` and `train/`.
 
 ## Architecture
 

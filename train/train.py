@@ -6,10 +6,16 @@ from sklearn.metrics import accuracy_score
 from . import settings
 from . import preprocess
 
-def train_model():
+import argparse
+
+def train_model(start_year, end_year):
+    print(f"--- Training Mode: {start_year}-{end_year} ---")
+    
     # 1. Load Data
-    raw_df = preprocess.load_data()
-    print("Data loaded.")
+    raw_df = preprocess.load_data(start_year=start_year, end_year=end_year)
+    if raw_df.empty:
+        print("No training data found.")
+        return
 
     # 2. Preprocess
     # Now returns df AND artifacts (encoders, maps)
@@ -20,7 +26,7 @@ def train_model():
     df['umaban'] = pd.to_numeric(df['umaban'], errors='coerce').fillna(0)
 
     # Split
-    train, valid, test = preprocess.split_data(df)
+    train, valid, _ = preprocess.split_data(df)
     
     # 3. Train
     features = [
@@ -51,10 +57,10 @@ def train_model():
         params,
         lgb_train,
         valid_sets=[lgb_train, lgb_eval],
-        num_boost_round=100,
+        num_boost_round=1000, # Increased rounds
         callbacks=[
-            lgb.early_stopping(stopping_rounds=10),
-            lgb.log_evaluation(10)
+            lgb.early_stopping(stopping_rounds=20),
+            lgb.log_evaluation(50)
         ]
     )
     
@@ -69,4 +75,9 @@ def train_model():
     print(f"Encoders saved to {encoder_path}")
 
 if __name__ == "__main__":
-    train_model()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--start", type=int, default=2016)
+    parser.add_argument("--end", type=int, default=2024)
+    args = parser.parse_args()
+    
+    train_model(args.start, args.end)

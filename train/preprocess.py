@@ -3,11 +3,38 @@ import numpy as np
 import os
 from . import settings
 
-def load_data():
-    """Loads all CSVs from raw data directory."""
+def load_data(start_year=None, end_year=None):
+    """Loads all CSVs from raw data directory, optionally filtering by year."""
     files = [f for f in os.listdir(settings.RAW_DATA_DIR) if f.endswith('.csv')]
     dfs = []
-    for f in files:
+    
+    # Filter files based on year in filename (results_YYYY.csv)
+    target_files = []
+    if start_year and end_year:
+        target_years = range(start_year, end_year + 1)
+        for f in files:
+            # Extract year assume format "results_2024.csv"
+            try:
+                # Simplistic extraction
+                parts = f.replace('results_', '').replace('.csv', '')
+                if '_' in parts: # results_2020_2021.csv case? usually just results_YYYY
+                     # If scraper_bulk outputs range? default scraper outputs results_YYYY.csv
+                     # Let's rely on checking file year if possible
+                     y = int(parts)
+                     if y in target_years:
+                         target_files.append(f)
+                else:
+                     y = int(parts)
+                     if y in target_years:
+                         target_files.append(f)
+            except:
+                pass
+    else:
+        target_files = files
+
+    print(f"Loading data from: {target_files}")
+
+    for f in target_files:
         path = os.path.join(settings.RAW_DATA_DIR, f)
         try:
             df = pd.read_csv(path)
@@ -16,12 +43,13 @@ def load_data():
             print(f"Skipping {f}: {e}")
             
     if not dfs:
-        raise ValueError("No data found in raw directory.")
+        # Fallback or raise
+        print("No matching data found.")
+        return pd.DataFrame()
         
     df = pd.concat(dfs, ignore_index=True)
     
-    # Drop duplicates in case of overlapping CSVs
-    # Identify unique rows by race_id + horse_id
+    # Drop duplicates
     initial_len = len(df)
     df = df.drop_duplicates(subset=['race_id', 'horse_id'])
     if len(df) < initial_len:
@@ -99,19 +127,41 @@ def preprocess(df):
     # Lag 1: Interval (Days since last race)
     df['interval'] = (df['date'] - df.groupby('horse_id')['date'].shift(1)).dt.days.fillna(365) # Default 1 year
 
-    # Target Encoding (Jockey)
-    # Fit on all data for demo
-    jockey_stats = df.groupby('jockey_id')['rank'].agg(['count', lambda x: (x==1).sum()])
-    jockey_stats.columns = ['count', 'wins']
-    jockey_win_rate = (jockey_stats['wins'] / jockey_stats['count']).to_dict()
+    # Target Encoding (Jockey) - Expanding Window (Leakage Free)
+    # Sort by date first (already done above)
+    print("Calculating expanding window stats for Jockey Win Rate...")
     
-    df['jockey_win_rate'] = df['jockey_id'].map(jockey_win_rate).fillna(0)
+    # 1. Calculate boolean 'is_win'
+    df['is_win'] = (df['rank'] == 1).astype(int)
     
-    # Store artifacts
+    # 2. Group by Jockey and calc expanding mean, shifted by 1
+    # This ensures row N uses info from 0 to N-1
+    # fillna(0) for the first race of a jockey
+    df['jockey_win_rate'] = df.groupby('jockey_id')['is_win'].transform(
+        lambda x: x.shift(1).expanding().mean()
+    ).fillna(0)
+    
+    # For Artifacts: We need to save the FINAL known stats for each jockey from the training set
+    # so we can use it for inference (future data).
+    final_jockey_stats = df.groupby('jockey_id')['is_win'].agg(['count', 'sum'])
+    final_jockey_stats['rate'] = final_jockey_stats['sum'] / final_jockey_stats['count']
+    jockey_win_rate_map = final_jockey_stats['rate'].to_dict()
+    
+    # Artifacts storage
     from sklearn.preprocessing import LabelEncoder
     artifacts = {
-        'jockey_win_rate': jockey_win_rate
+        'jockey_win_rate': jockey_win_rate_map,
+        'course_stats': None # Placeholder
     }
+    
+    # Save Course Stats for Speed Index (computed earlier) to artifacts
+    if 'course_type' in df.columns and 'distance' in df.columns:
+         valid_times = df[df['time_sec'] > 0]
+         course_stats = valid_times.groupby(['course_type', 'distance'])['time_sec'].agg(['mean', 'std']).reset_index()
+         # Convert to dict for easier serialization or keep as DF
+         # Let's keep as DF but standardized columns
+         course_stats.columns = ['course_type', 'distance', 'course_mean', 'course_std']
+         artifacts['course_stats'] = course_stats.to_dict('records') # List of dicts
 
     # Encode IDs
     for col in settings.CATEGORY_COLS:
@@ -146,29 +196,34 @@ def transform(df, artifacts):
             return np.nan
     df['time_sec'] = df['time'].apply(parse_time)
     
-    # Feature: Speed Index (Simplified for Inference - use Pre-computed Course Stats if available)
-    # Ideally, artifacts should contain course_stats. 
-    # For MVP, we'll re-calculate if batch, or skip if single row/no context data.
-    # In rigorous ML, stats should be fixed from Train set.
-    # For now, we will calculate SI based on the current batch's deviations if possible, 
-    # OR better: artifacts should save the 'course_mean/std' map.
-    # Let's assume for this step we skip complex SI if stats not in artifacts, 
-    # or just calc on the fly if it's a batch evaluation.
-    
-    # If we are valid/eval set, we might want to use our own distribution or training distribution.
-    # To keep consistent with current logic which calcs SI on the input dataframe:
-    if 'course_type' in df.columns and 'distance' in df.columns:
-         valid_times = df[df['time_sec'] > 0]
-         if not valid_times.empty:
-             stats = valid_times.groupby(['course_type', 'distance'])['time_sec'].agg(['mean', 'std']).reset_index()
-             stats.columns = ['course_type', 'distance', 'course_mean', 'course_std']
-             df = df.merge(stats, on=['course_type', 'distance'], how='left')
-             df['speed_index'] = (df['course_mean'] - df['time_sec']) / df['course_std'].replace(0, 1)
-             df['speed_index'] = df['speed_index'].fillna(0)
-         else:
-             df['speed_index'] = 0
+    # Feature: Speed Index
+    # Use Artifacts if available (preferred for consistency)
+    if 'course_stats' in artifacts and artifacts['course_stats'] is not None:
+        stats_data = artifacts['course_stats']
+        # Convert back to DF
+        stats_df = pd.DataFrame(stats_data)
+        
+        # Merge
+        if 'course_type' in df.columns and 'distance' in df.columns:
+            df = df.merge(stats_df, on=['course_type', 'distance'], how='left')
+            df['speed_index'] = (df['course_mean'] - df['time_sec']) / df['course_std'].replace(0, 1)
+            df['speed_index'] = df['speed_index'].fillna(0)
+        else:
+            df['speed_index'] = 0
     else:
-        df['speed_index'] = 0
+        # Fallback: Calc on the fly (batch mode)
+        if 'course_type' in df.columns and 'distance' in df.columns:
+             valid_times = df[df['time_sec'] > 0]
+             if not valid_times.empty:
+                 stats = valid_times.groupby(['course_type', 'distance'])['time_sec'].agg(['mean', 'std']).reset_index()
+                 stats.columns = ['course_type', 'distance', 'course_mean', 'course_std']
+                 df = df.merge(stats, on=['course_type', 'distance'], how='left')
+                 df['speed_index'] = (df['course_mean'] - df['time_sec']) / df['course_std'].replace(0, 1)
+                 df['speed_index'] = df['speed_index'].fillna(0)
+             else:
+                 df['speed_index'] = 0
+        else:
+            df['speed_index'] = 0
 
     # Lag Features (Past Performance) - Self-contained sort
     df = df.sort_values(['horse_id', 'date'])
@@ -220,20 +275,23 @@ def transform(df, artifacts):
     df = df.fillna(0)
     return df
 
-def split_data(df):
+def split_data(df, valid_ratio=0.15):
     """
-    Split into Train/Valid/Test (Time Series Split).
+    Split into Train/Valid (Time Series Split).
+    Test set is usually separate in this workflow (e.g. 2025).
     """
     # Sort by date
-    df = df.sort_values('date')
+    df = df.sort_values('date').reset_index(drop=True)
     
-    # Simple time split
     n = len(df)
-    train_idx = int(n * 0.7)
-    valid_idx = int(n * 0.85)
+    train_idx = int(n * (1 - valid_ratio))
     
     train = df.iloc[:train_idx]
-    valid = df.iloc[train_idx:valid_idx]
-    test = df.iloc[valid_idx:]
+    valid = df.iloc[train_idx:]
     
-    return train, valid, test
+    # Check simple date boundaries
+    if not train.empty and not valid.empty:
+        print(f"Train: {train['date'].min()} -> {train['date'].max()} ({len(train)} rows)")
+        print(f"Valid: {valid['date'].min()} -> {valid['date'].max()} ({len(valid)} rows)")
+    
+    return train, valid, None # No test set here
