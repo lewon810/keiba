@@ -7,7 +7,9 @@ on:
     - cron: '0 */3 * * *'
 
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
 
 jobs:
   predict:
@@ -33,14 +35,15 @@ jobs:
         export PYTHONPATH=$PYTHONPATH:.
         python -m app.run_weekend
 
-    - name: Deploy to GitHub Pages
-      uses: peaceiris/actions-gh-pages@v3
+    - name: Setup Pages
+      uses: actions/configure-pages@v4
+
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v3
       with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./public
-        keep_files: true
-        # We only want to publish index.html, but keep_files might keep old stuff. 
-        # Actually simplest is to publish directory containing index.html.
-        # Since we generate index.html in root, publish_dir: ./ is fine but might include source code.
-        # Better: Move index.html to a build folder.
-      if: success()
+        # Upload the 'public' directory
+        path: 'public'
+
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4

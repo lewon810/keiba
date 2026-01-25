@@ -36,7 +36,7 @@ def main():
     dates = get_weekend_dates()
     print(f"Targeting Weekend: {dates}")
     
-    all_predictions = {}
+    all_predictions = []
     
     for date_str in dates:
         print(f"\nSearching races for {date_str}...")
@@ -58,7 +58,19 @@ def main():
                     if isinstance(df, str): # Error message
                         print(f"Prediction failed: {df}")
                     else:
-                        all_predictions[title] = df
+                        # r dict contains: 'id', 'url', 'title', 'race_no'
+                        # id is like 202606010802 -> YYYYPP...
+                        # Extract Place Code
+                        rid = r['id']
+                        p_code = rid[4:6]
+                        
+                        all_predictions.append({
+                            "date": date_str,
+                            "place": p_code,
+                            "race_no": r['race_no'],
+                            "title": title,
+                            "df": df
+                        })
                         
         except Exception as e:
             print(f"Error processing {date_str}: {e}")
