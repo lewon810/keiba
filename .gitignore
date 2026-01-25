@@ -6,10 +6,5 @@ debug.html
 docs_content.txt
 .DS_Store
 
-# Data
-train/data/raw/*.csv
-train/data/processed/
-train/data/model/*.pkl
-
 # Generated Reports
 public/
