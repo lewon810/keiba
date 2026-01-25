@@ -101,78 +101,88 @@ def generate_html_report(predictions_list, output_path="index.html"):
                 # Races in this place
                 races = sorted(data_tree[date_str][p_code], key=lambda x: x['race_no'])
                 
-                # --- Level 3: Race Buttons (Anchor Links to cards) ---
-                # Actually, displaying 12 cards vertically is fine if we have Place tabs.
-                # Let's add a quick jump list though.
-                html_content.append('<div class="btn-group race-btn-group" role="group">')
-                for item in races:
+                # --- Level 3: Race Tabs (Nav Tabs/Pills) ---
+                html_content.append(f'<ul class="nav nav-tabs mb-3" id="raceTabs-{date_str}-{p_code}" role="tablist">')
+                for k, item in enumerate(races):
                     r_no = item['race_no']
-                    html_content.append(f'<a href="#race-{date_str}-{p_code}-{r_no}" class="btn btn-outline-secondary">{r_no}R</a>')
-                html_content.append('</div>')
+                    active_r = "active" if k == 0 else ""
+                    html_content.append(f"""
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link {active_r}" id="tab-{date_str}-{p_code}-{r_no}" data-bs-toggle="tab" data-bs-target="#race-{date_str}-{p_code}-{r_no}" type="button" role="tab">{r_no}R</button>
+                        </li>
+                    """)
+                html_content.append('</ul>')
 
-                # Render Race Cards
-                for item in races:
+                # --- Level 3 Content (Race Cards) ---
+                html_content.append(f'<div class="tab-content" id="raceTabsContent-{date_str}-{p_code}">')
+
+                for k, item in enumerate(races):
                     r_no = item['race_no']
                     df = item['df']
                     title = item['title']
+                    active_r = "show active" if k == 0 else ""
                     
                     # Formatting matching previous style
                     weather = df['weather'].iloc[0] if 'weather' in df.columns else 'Unknown'
                     distance = df['distance'].iloc[0] if 'distance' in df.columns else 'Unknown'
 
                     html_content.append(f"""
-                    <div class="card race-card" id="race-{date_str}-{p_code}-{r_no}">
-                        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">{title}</h5>
-                            <span class="badge bg-secondary">{weather} / {distance}m</span>
-                        </div>
-                        <div class="card-body p-0">
-                            <div class="table-responsive">
-                                <table class="table table-hover mb-0">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>#</th>
-                                            <th>Name</th>
-                                            <th>Jockey</th>
-                                            <th>Odds</th>
-                                            <th>Win%</th>
-                                            <th>Score</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
+                    <div class="tab-pane fade {active_r}" id="race-{date_str}-{p_code}-{r_no}" role="tabpanel">
+                        <div class="card race-card">
+                            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">{title}</h5>
+                                <span class="badge bg-secondary">{weather} / {distance}m</span>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-hover mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>#</th>
+                                                <th>Name</th>
+                                                <th>Jockey</th>
+                                                <th>Odds</th>
+                                                <th>Win%</th>
+                                                <th>Score</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
                     """)
                     
-                    for k, (_, row) in enumerate(df.iterrows()):
+                    for row_idx, (_, row) in enumerate(df.iterrows()):
                         row_class = ""
                         badge = ""
-                        if k == 0: 
+                        if row_idx == 0: 
                             row_class = "table-warning"
                             badge = "🥇 "
-                        elif k == 1: badge = "🥈 "
-                        elif k == 2: badge = "🥉 "
+                        elif row_idx == 1: badge = "🥈 "
+                        elif row_idx == 2: badge = "🥉 "
                         
                         odds = row.get('odds', '---.-')
                         win_prob = row.get('win_prob', 0) * 100
                         score = row.get('score', 0)
                         
                         html_content.append(f"""
-                                    <tr class="{row_class}">
-                                        <td>{badge}{k+1}</td>
-                                        <td>{row['name']}</td>
-                                        <td>{row['jockey']}</td>
-                                        <td>{odds}</td>
-                                        <td>{win_prob:.1f}%</td>
-                                        <td class="score-high">{score:.4f}</td>
-                                    </tr>
+                                        <tr class="{row_class}">
+                                            <td>{badge}{row_idx+1}</td>
+                                            <td>{row['name']}</td>
+                                            <td>{row['jockey']}</td>
+                                            <td>{odds}</td>
+                                            <td>{win_prob:.1f}%</td>
+                                            <td class="score-high">{score:.4f}</td>
+                                        </tr>
                         """)
                     html_content.append("</tbody></table></div></div></div>")
+                    html_content.append("</div>") # End Tab Pane
                 
-                html_content.append('</div>') # End Place Content
+                html_content.append('</div>') # End Level 3 Content
+                
+                html_content.append('</div>') # End Level 2 Content (Place Pane)
             
-            html_content.append('</div>') # End Place Tabs
-            html_content.append('</div>') # End Date Content
+            html_content.append('</div>') # End Level 2 Tabs Content
+            html_content.append('</div>') # End Level 1 Content (Date Pane)
 
-        html_content.append('</div>') # End Date Tabs
+        html_content.append('</div>') # End Level 1 Tabs Content
 
     html_content.append("""
         <footer class="text-center text-muted mt-5">
