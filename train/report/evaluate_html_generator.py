@@ -23,10 +23,23 @@ def generate_report(start_year, end_year, output_file="evaluate.html", power_min
     p_max = int(power_max) if power_max is not None else p_min
     power_values = list(range(p_min, p_max + 1))
     
+    # Place Codes Mapping
+    place_map = {
+        "01": "Sapporo", "02": "Hakodate", "03": "Fukushima", "04": "Niigata",
+        "05": "Tokyo", "06": "Nakayama", "07": "Chukyo", "08": "Kyoto",
+        "09": "Hanshin", "10": "Kokura"
+    }
+    
     r_min = int(race_min) if race_min is not None else 1
     r_max = int(race_max) if race_max is not None else 12
     print(f"Evaluating Power Exponents: {power_values}")
     print(f"Evaluating Race Numbers: {r_min} to {r_max}")
+    
+    min_scores = [round(x * 0.1, 1) for x in range(0, 11)] # 0.0 to 1.0
+    
+    # Store results for all powers
+    # Structure: {power: summary_df}
+    all_power_results = {}
 
     # 1. Load Data & Model (Once)
     from train import scraper_bulk, preprocess
