@@ -85,6 +85,9 @@ def fetch_race_data(url):
             horse["jockey"] = get_text("td.Jockey a")
             horse["jockey_id"] = get_id("td.Jockey a")
             
+            horse["trainer"] = get_text("td.Trainer a")
+            horse["trainer_id"] = get_id("td.Trainer a")
+            
             horse["ninki"] = get_text("td.Popular_Ninki")
             
             # Odds extraction

@@ -29,21 +29,13 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    - name: Run Weekend Predictions
-      # Ensure python path includes current dir
+    - name: Run Weekend Predictions (HTML Report)
       run: |
         export PYTHONPATH=$PYTHONPATH:.
-        python -m app.run_weekend
+        python -m app.report.predict_html_generator
 
-    - name: Setup Pages
-      uses: actions/configure-pages@v4
-
-    - name: Upload artifact
-      uses: actions/upload-pages-artifact@v3
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
       with:
-        # Upload the 'public' directory
-        path: 'public'
-
-    - name: Deploy to GitHub Pages
-      id: deployment
-      uses: actions/deploy-pages@v4
+        name: prediction-artifact
+        path: predict.html

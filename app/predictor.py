@@ -81,9 +81,23 @@ def predict(race_data, return_df=False):
 
         df['jockey_win_rate'] = df['jockey_id'].apply(get_rate)
 
+        # 2b. Trainer Win Rate
+        trainer_map = artifacts.get('trainer_win_rate', {})
+        def get_trainer_rate(tid):
+            if tid in trainer_map: return trainer_map[tid]
+            try:
+                if int(tid) in trainer_map: return trainer_map[int(tid)]
+            except: pass
+            try:
+                if str(tid) in trainer_map: return trainer_map[str(tid)]
+            except: pass
+            return 0.0
+            
+        df['trainer_win_rate'] = df['trainer_id'].apply(get_trainer_rate)
+
         # 3. Categorical Encoding (Label Encoder)
-        cat_cols = ['horse_id', 'jockey_id', 'course_type', 'weather', 'condition']
-        # 'trainer_id' not in minimal scraper yet
+        # 3. Categorical Encoding (Label Encoder)
+        cat_cols = ['horse_id', 'jockey_id', 'trainer_id', 'course_type', 'weather', 'condition']
 
         for col in cat_cols:
             # Keys in encoders.pkl are bare column names (e.g. 'horse_id')
@@ -103,15 +117,21 @@ def predict(race_data, return_df=False):
                  df[col] = 0
 
         # 4. Numeric cleanup
+        # 4. Numeric cleanup
         df['waku'] = pd.to_numeric(df['waku'], errors='coerce').fillna(0)
         df['umaban'] = pd.to_numeric(df['umaban'], errors='coerce').fillna(0)
         df['distance'] = pd.to_numeric(df['distance'], errors='coerce').fillna(0)
+        
+        # Missing columns handling
+        if 'weight_diff' not in df.columns:
+            df['weight_diff'] = 0
+        df['weight_diff'] = pd.to_numeric(df['weight_diff'], errors='coerce').fillna(0)
 
         # 5. Predict
         features = [
-            'jockey_win_rate', 'horse_id', 'jockey_id', 'waku', 'umaban',
-            'course_type', 'distance', 'weather', 'condition',
-            'lag1_rank', 'lag1_speed_index', 'interval'
+            'jockey_win_rate', 'trainer_win_rate', 'horse_id', 'jockey_id', 'trainer_id',
+            'waku', 'umaban', 'course_type', 'distance', 'weather', 'condition',
+            'lag1_rank', 'lag1_speed_index', 'interval', 'weight_diff'
         ]
 
         # LightGBM Multiclass returns (N, 4) probability matrix

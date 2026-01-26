@@ -1,0 +1,61 @@
+name: Deploy to Pages
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 0 * * *' # Daily check for updates
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+      actions: read # Needed to download artifacts from other runs
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Download Prediction Artifact
+      uses: dawidd6/action-download-artifact@v3
+      with:
+        workflow: predict.yml
+        name: prediction-artifact
+        path: public
+        if_no_artifact_found: warn
+        check_artifacts:  true 
+        search_artifacts: true 
+        # Optional: ensure we get the latest successful run
+
+    - name: Download Evaluation Artifact
+      uses: dawidd6/action-download-artifact@v3
+      with:
+        workflow: evaluate.yml
+        name: evaluation-artifact
+        path: public
+        if_no_artifact_found: warn
+        check_artifacts:  true
+        search_artifacts: true
+
+    - name: Generate Index
+      run: |
+        python deploy/index_generator.py
+
+    - name: Setup Pages
+      uses: actions/configure-pages@v4
+
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: 'public'
+
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4

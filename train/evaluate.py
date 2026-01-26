@@ -20,19 +20,49 @@ def evaluate(start_year, end_year, csv_file=None, min_score=None):
     artifacts = joblib.load(encoder_path)
     
     # 2. Get Data
+    raw_df = pd.DataFrame()
     if csv_file and os.path.exists(csv_file):
         print(f"Loading data from provided CSV: {csv_file}...")
         raw_df = pd.read_csv(csv_file)
     else:
-        # Check if raw csv exists based on years
-        csv_path = os.path.join(settings.RAW_DATA_DIR, f"results_{start_year}_{end_year}.csv")
-        if os.path.exists(csv_path):
-            print(f"Loading data from {csv_path}...")
-            raw_df = pd.read_csv(csv_path)
+        # Check for individual year files first (common case)
+        dfs = []
+        full_range_found = True
+        for y in range(start_year, end_year + 1):
+            y_path = os.path.join(settings.RAW_DATA_DIR, f"results_{y}.csv")
+            if os.path.exists(y_path):
+                try:
+                    dfs.append(pd.read_csv(y_path))
+                except Exception as e:
+                    print(f"Error reading {y_path}: {e}")
+                    full_range_found = False
+            else:
+                full_range_found = False
+        
+        if full_range_found and dfs:
+            print(f"Loading data from individual files for {start_year}-{end_year}...")
+            raw_df = pd.concat(dfs, ignore_index=True)
         else:
-            print(f"Data not found locally. Scraping {start_year}-{end_year}...")
-            raw_df = scraper_bulk.bulk_scrape(start_year, end_year)
-    
+            # Fallback to looking for a combined file (rare)
+            csv_path = os.path.join(settings.RAW_DATA_DIR, f"results_{start_year}_{end_year}.csv")
+            if os.path.exists(csv_path):
+                print(f"Loading data from {csv_path}...")
+                raw_df = pd.read_csv(csv_path)
+            else:
+                print(f"Data not completely found locally. Scraping {start_year}-{end_year}...")
+                # scraper_bulk does not return the df, it saves to files.
+                scraper_bulk.bulk_scrape(start_year, end_year)
+                
+                # Reload from files
+                dfs = []
+                for y in range(start_year, end_year + 1):
+                    y_path = os.path.join(settings.RAW_DATA_DIR, f"results_{y}.csv")
+                    if os.path.exists(y_path):
+                        dfs.append(pd.read_csv(y_path))
+                
+                if dfs:
+                    raw_df = pd.concat(dfs, ignore_index=True)
+
     if raw_df.empty:
         print("No data found.")
         return {}
@@ -78,9 +108,9 @@ def evaluate(start_year, end_year, csv_file=None, min_score=None):
     
     # 4. Predict
     features = [
-        'jockey_win_rate', 'horse_id', 'jockey_id', 'waku', 'umaban',
-        'course_type', 'distance', 'weather', 'condition',
-        'lag1_rank', 'lag1_speed_index', 'interval'
+        'jockey_win_rate', 'trainer_win_rate', 'horse_id', 'jockey_id', 'trainer_id',
+        'waku', 'umaban', 'course_type', 'distance', 'weather', 'condition',
+        'lag1_rank', 'lag1_speed_index', 'interval', 'weight_diff'
     ]
     
     if df.empty:
