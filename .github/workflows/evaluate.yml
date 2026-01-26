@@ -2,6 +2,19 @@ name: Learn and Evaluate
 
 on:
   workflow_dispatch:
+    inputs:
+      train_start:
+        description: 'Training Start Year'
+        required: true
+        default: '2016'
+      train_end:
+        description: 'Training End Year'
+        required: true
+        default: '2024'
+      eval_year:
+        description: 'Evaluation Year'
+        required: true
+        default: '2025'
   schedule:
     # Run weekly or so? User didn't specify schedule prefernce for this one.
     - cron: '0 0 * * 1' # Every Monday
@@ -25,19 +38,25 @@ jobs:
         pip install -r requirements.txt
         pip install matplotlib
 
-    - name: Train Model (2016-2024)
+    - name: Train Model
       # Assumes raw data is present in repo or cached. 
       # User stated: "Use CSVs in master branch raw folder".
       run: |
         export PYTHONPATH=$PYTHONPATH:.
-        python -m train.train --start 2016 --end 2024
+        # Use inputs if available (workflow_dispatch), otherwise defaults for schedule
+        START=${{ inputs.train_start || '2016' }}
+        END=${{ inputs.train_end || '2024' }}
+        echo "Training from $START to $END"
+        python -m train.train --start $START --end $END
 
-    - name: Generate Evaluation Report (2025)
+    - name: Generate Evaluation Report
       run: |
         export PYTHONPATH=$PYTHONPATH:.
         # Ensure report dir exists
         mkdir -p train/report
-        python -m train.report.evaluate_html_generator --start 2025 --end 2025 --output evaluate.html
+        EVAL_YEAR=${{ inputs.eval_year || '2025' }}
+        echo "Evaluating on $EVAL_YEAR"
+        python -m train.report.evaluate_html_generator --start $EVAL_YEAR --end $EVAL_YEAR --output evaluate.html
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
