@@ -1,0 +1,41 @@
+name: Scrape Horse Profiles
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  scrape-horse:
+    runs-on: windows-latest
+    timeout-minutes: 360 # 6 hours
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # Fetch all history for push safety (though usually fine with shallow for simple pushes)
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+
+    - name: Run Horse Scraper
+      run: |
+        python -m train.scraper_horse
+
+    - name: Commit and Push changes
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add train/data/raw/horse_profiles.csv
+        # Check if there are changes to commit
+        git diff --staged --quiet || git commit -m "Update horse_profiles.csv via scraper [skip ci]"
+        git push

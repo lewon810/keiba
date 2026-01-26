@@ -54,6 +54,34 @@ def load_data(start_year=None, end_year=None):
     df = df.drop_duplicates(subset=['race_id', 'horse_id'])
     if len(df) < initial_len:
         print(f"Dropped {initial_len - len(df)} duplicate rows.")
+    
+    # Merge Pedigree Data (Horse Profiles)
+    profile_path = os.path.join(settings.RAW_DATA_DIR, "horse_profiles.csv")
+    if os.path.exists(profile_path):
+        print("Merging horse profiles (Pedigree)...")
+        try:
+            profiles = pd.read_csv(profile_path)
+            # Ensure ID is string
+            if 'horse_id' in profiles.columns:
+                profiles['horse_id'] = profiles['horse_id'].astype(str)
+                # Keep relevant columns
+                cols_to_merge = ['horse_id', 'sire_id', 'damsire_id']
+                profiles = profiles[[c for c in cols_to_merge if c in profiles.columns]]
+                
+                df['horse_id'] = df['horse_id'].astype(str)
+                df = df.merge(profiles, on='horse_id', how='left')
+                
+                # Fill missing
+                if 'sire_id' in df.columns:
+                    df['sire_id'] = df['sire_id'].fillna("unknown")
+                if 'damsire_id' in df.columns:
+                    df['damsire_id'] = df['damsire_id'].fillna("unknown")
+            else:
+                print("Profile data missing horse_id column.")
+        except Exception as e:
+            print(f"Error merging profiles: {e}")
+    else:
+        print("No horse profile data found. Skipping pedigree features.")
         
     return df
 
@@ -160,6 +188,32 @@ def preprocess(df):
     final_trainer_stats['rate'] = final_trainer_stats['sum'] / final_trainer_stats['count']
     trainer_win_rate_map = final_trainer_stats['rate'].to_dict()
 
+    # Target Encoding (Pedigree: Sire & DamSire)
+    # Check if columns exist (merged from horse_profiles)
+    sire_win_rate_map = {}
+    damsire_win_rate_map = {}
+    
+    for col, name in [('sire_id', 'Sire'), ('damsire_id', 'DamSire')]:
+        if col in df.columns:
+            print(f"Calculating expanding window stats for {name} Win Rate...")
+            # Fill missing IDs
+            df[col] = df[col].astype(str).replace('nan', 'unknown').fillna('unknown')
+            
+            df[f'{col.replace("_id", "")}_win_rate'] = df.groupby(col)['is_win'].transform(
+                lambda x: x.shift(1).expanding().mean()
+            ).fillna(0)
+            
+            # Artifacts
+            stats = df.groupby(col)['is_win'].agg(['count', 'sum'])
+            stats['rate'] = stats['sum'] / stats['count']
+            if col == 'sire_id':
+                sire_win_rate_map = stats['rate'].to_dict()
+            else:
+                damsire_win_rate_map = stats['rate'].to_dict()
+        else:
+            print(f"Warning: {col} not found in data. Filling with 0.")
+            df[f'{col.replace("_id", "")}_win_rate'] = 0.0
+
     # Feature: Weight Diff (Clean)
     # 484(+2) -> +2 extracted by scraper as 'weight_diff'. Ensure numeric.
     if 'weight_diff' not in df.columns:
@@ -172,6 +226,8 @@ def preprocess(df):
     artifacts = {
         'jockey_win_rate': jockey_win_rate_map,
         'trainer_win_rate': trainer_win_rate_map,
+        'sire_win_rate': sire_win_rate_map,       # New
+        'damsire_win_rate': damsire_win_rate_map, # New
         'course_stats': None # Placeholder
     }
     
@@ -184,7 +240,7 @@ def preprocess(df):
          course_stats.columns = ['course_type', 'distance', 'course_mean', 'course_std']
          artifacts['course_stats'] = course_stats.to_dict('records') # List of dicts
 
-    # Encode IDs
+    # Encode IDs (Update CATEGORY_COLS later in settings, but handle here if added)
     for col in settings.CATEGORY_COLS:
         if col in df.columns:
             # Add string conversion for safety
@@ -258,7 +314,15 @@ def transform(df, artifacts):
     df['interval'] = (df['date'] - df.groupby('horse_id')['date'].shift(1)).dt.days.fillna(365)
 
     # Encoding using Artifacts
-    for col, enc_map in [('jockey_win_rate', 'jockey_id'), ('trainer_win_rate', 'trainer_id')]:
+    # Added Pedigree Features
+    encoding_cols = [
+        ('jockey_win_rate', 'jockey_id'),
+        ('trainer_win_rate', 'trainer_id'),
+        ('sire_win_rate', 'sire_id'),
+        ('damsire_win_rate', 'damsire_id')
+    ]
+    
+    for col, enc_map in encoding_cols:
         if col in artifacts:
             map_dict = artifacts[col]
             # Map with type safety fallback
@@ -268,11 +332,13 @@ def transform(df, artifacts):
                 return 0.0
             id_col = enc_map
             if id_col in df.columns:
-                df[col] = df[id_col].apply(get_rate)
+                # Ensure ID is processed (e.g. unknown) handled by map safety or pre-fill
+                df[col] = df[id_col].astype(str).apply(get_rate)
             else:
-                df[col] = 0
+                # Fallback if ID column missing (e.g. inference data lacks profile)
+                df[col] = 0.0
         else:
-            df[col] = 0
+            df[col] = 0.0
             
     # Weight Diff
     if 'weight_diff' in df.columns:
