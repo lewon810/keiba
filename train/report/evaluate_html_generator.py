@@ -28,7 +28,42 @@ def generate_report(start_year, end_year, output_file="evaluate.html", power_min
     print(f"Evaluating Power Exponents: {power_values}")
     print(f"Evaluating Race Numbers: {r_min} to {r_max}")
 
-    # ... (skipping to filtering logic)
+    # 1. Load Data & Model (Once)
+    from train import scraper_bulk, preprocess
+    import joblib
+    
+    if not os.path.exists(settings.MODEL_PATH):
+        print("Model not found.")
+        return
+
+    print("Loading Model...")
+    model = joblib.load(settings.MODEL_PATH)
+    artifacts = joblib.load(os.path.join(settings.MODEL_DIR, 'encoders.pkl'))
+    
+    # Load Data
+    print("Loading Data...")
+    raw_df = pd.DataFrame()
+    dfs = []
+    for y in range(start_year, end_year + 1):
+        p = os.path.join(settings.RAW_DATA_DIR, f"results_{y}.csv")
+        if os.path.exists(p):
+            dfs.append(pd.read_csv(p))
+    
+    if dfs:
+        raw_df = pd.concat(dfs, ignore_index=True)
+    else:
+        print("No data found, skipping.")
+        return
+
+    # Load Filters
+    import yaml
+    yaml_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'evaluate_settings.yml')
+    config = {}
+    if os.path.exists(yaml_path):
+        with open(yaml_path, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+
+
 
     # Filter places & races
     if not raw_df.empty:
