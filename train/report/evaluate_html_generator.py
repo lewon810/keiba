@@ -168,11 +168,16 @@ def generate_report(start_year, end_year, output_file="evaluate.html"):
                 hits_df = bet_df[bet_df['rank'] == 1]
                 hits = len(hits_df)
                 
+                # Top 3 (Place)
+                place_df_hits = bet_df[bet_df['rank'] <= 3]
+                hits_top3 = len(place_df_hits)
+                
                 # Return
                 return_amt = (hits_df['odds'] * 100).sum()
                 
                 roi = return_amt / cost * 100
                 hit_rate = hits / bets * 100
+                place_rate = hits_top3 / bets * 100
                 
                 # Logging (Only need to log once per race, but we are inside loop over thresholds.
                 # Let's log if threshold is specific, or just log all bets for the lowest threshold (0.0) 
@@ -197,6 +202,8 @@ def generate_report(start_year, end_year, output_file="evaluate.html"):
             else:
                 roi = 0
                 hit_rate = 0
+                place_rate = 0
+                hits_top3 = 0
             
             summary_data.append({
                 'min_score': score_thresh,
@@ -204,7 +211,9 @@ def generate_report(start_year, end_year, output_file="evaluate.html"):
                 'place_name': place_name,
                 'bets': bets,
                 'hits': hits,
+                'hits_top3': hits_top3,
                 'hit_rate': hit_rate,
+                'place_rate': place_rate,
                 'roi': roi,
                 'return': return_amt,
                 'cost': cost
@@ -243,13 +252,16 @@ def generate_report(start_year, end_year, output_file="evaluate.html"):
     # 1. Overall Summary Table (Pivot by Score)
     # Aggregate across all places
     all_summary = summary_df.groupby('min_score').agg({
-        'bets': 'sum', 'hits': 'sum', 'cost': 'sum', 'return': 'sum'
+        'bets': 'sum', 'hits': 'sum', 'hits_top3': 'sum', 'cost': 'sum', 'return': 'sum'
     }).reset_index()
     all_summary['roi'] = (all_summary['return'] / all_summary['cost'] * 100).fillna(0)
     all_summary['hit_rate'] = (all_summary['hits'] / all_summary['bets'] * 100).fillna(0)
+    all_summary['place_rate'] = (all_summary['hits_top3'] / all_summary['bets'] * 100).fillna(0)
     
     html_content += "<h2>Overall Performance by Score Threshold</h2>"
-    html_content += all_summary.to_html(classes='table', float_format="%.2f", index=False)
+    # Reorder cols for clarity
+    cols = ['min_score', 'bets', 'hits', 'hits_top3', 'hit_rate', 'place_rate', 'roi', 'cost', 'return']
+    html_content += all_summary[cols].to_html(classes='table', float_format="%.2f", index=False)
     
     # 2. ROI by Place (for each threshold)
     html_content += "<h2>ROI by Racecourse</h2>"
@@ -258,18 +270,23 @@ def generate_report(start_year, end_year, output_file="evaluate.html"):
     html_content += pivot_roi.to_html(classes='table', float_format="%.1f%%", na_rep="-")
 
     # 3. Hit Rate by Place
-    html_content += "<h2>Hit Rate by Racecourse</h2>"
+    html_content += "<h2>Hit Rate (Win) by Racecourse</h2>"
     pivot_acc = summary_df.pivot(index='min_score', columns='place_name', values='hit_rate')
     html_content += pivot_acc.to_html(classes='table', float_format="%.1f%%", na_rep="-")
     
-    # 4. Charts (Matplotlib -> Base64)
+    # 4. Place Rate by Place
+    html_content += "<h2>Place Rate (Top 3) by Racecourse</h2>"
+    pivot_place = summary_df.pivot(index='min_score', columns='place_name', values='place_rate')
+    html_content += pivot_place.to_html(classes='table', float_format="%.1f%%", na_rep="-")
+    
+    # 5. Charts (Matplotlib -> Base64)
     html_content += "<h2>Visual Analysis</h2>"
     
     # Chart 1: ROI vs Score (All)
     plt.figure(figsize=(10, 5))
-    plt.plot(all_summary['min_score'], all_summary['roi'], marker='o', label='Global ROI')
+    plt.plot(all_summary['min_score'], all_summary['roi'], marker='o', label='ROI')
     plt.axhline(100, color='red', linestyle='--', label='Break Even')
-    plt.title("ROI vs Min Score Threshold (All Courses)")
+    plt.title("ROI vs Min Score Threshold")
     plt.xlabel("Min Score")
     plt.ylabel("ROI (%)")
     plt.grid(True)

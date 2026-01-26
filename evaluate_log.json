@@ -442,8 +442,8 @@
   {
     "race_id": "202506020509",
     "place": "Nakayama",
-    "horse_id": 7683,
-    "score": 0.18427182309686563,
+    "horse_id": 3218,
+    "score": 0.1537994493387379,
     "odds": 52.6,
     "rank": 11,
     "is_hit": 0,
@@ -462,10 +462,10 @@
   {
     "race_id": "202506020511",
     "place": "Nakayama",
-    "horse_id": 7683,
-    "score": 0.13187373923124346,
-    "odds": 26.5,
-    "rank": 4,
+    "horse_id": 51137,
+    "score": 0.12236805599559317,
+    "odds": 347.4,
+    "rank": 11,
     "is_hit": 0,
     "return": 0
   },
@@ -552,8 +552,8 @@
   {
     "race_id": "202506020712",
     "place": "Nakayama",
-    "horse_id": 7683,
-    "score": 0.45699464567723563,
+    "horse_id": 3218,
+    "score": 0.3750484703522437,
     "odds": 343.7,
     "rank": 5,
     "is_hit": 0,
@@ -572,8 +572,8 @@
   {
     "race_id": "202506020812",
     "place": "Nakayama",
-    "horse_id": 7683,
-    "score": 0.15897619258132417,
+    "horse_id": 3218,
+    "score": 0.1253526972813163,
     "odds": 104.8,
     "rank": 13,
     "is_hit": 0,
@@ -622,8 +622,8 @@
   {
     "race_id": "202506030212",
     "place": "Nakayama",
-    "horse_id": 7683,
-    "score": 0.24108539712861854,
+    "horse_id": 3218,
+    "score": 0.15687427628315723,
     "odds": 30.0,
     "rank": 13,
     "is_hit": 0,
@@ -736,16 +736,6 @@
     "score": 0.11426811450871877,
     "odds": 95.3,
     "rank": 11,
-    "is_hit": 0,
-    "return": 0
-  },
-  {
-    "race_id": "202507020112",
-    "place": "Chukyo",
-    "horse_id": 7683,
-    "score": 0.10924471732884605,
-    "odds": 198.4,
-    "rank": 13,
     "is_hit": 0,
     "return": 0
   },
