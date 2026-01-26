@@ -23,6 +23,14 @@ on:
         description: 'Max Score Exponent (Power)'
         required: true
         default: '5'
+      race_min:
+        description: 'Min Race No (e.g. 9)'
+        required: false
+        default: '1'
+      race_max:
+        description: 'Max Race No (e.g. 12)'
+        required: false
+        default: '12'
   schedule:
     # Run weekly or so? User didn't specify schedule prefernce for this one.
     - cron: '0 0 * * 1' # Every Monday
@@ -65,8 +73,10 @@ jobs:
         EVAL_YEAR=${{ inputs.eval_year || '2025' }}
         P_MIN=${{ inputs.power_min || '3' }}
         P_MAX=${{ inputs.power_max || '5' }}
-        echo "Evaluating on $EVAL_YEAR with Power Range $P_MIN-$P_MAX"
-        python -m train.report.evaluate_html_generator --start $EVAL_YEAR --end $EVAL_YEAR --output evaluate.html --power_min $P_MIN --power_max $P_MAX
+        R_MIN=${{ inputs.race_min || '1' }}
+        R_MAX=${{ inputs.race_max || '12' }}
+        echo "Evaluating on $EVAL_YEAR | Power $P_MIN-$P_MAX | Race $R_MIN-$R_MAX"
+        python -m train.report.evaluate_html_generator --start $EVAL_YEAR --end $EVAL_YEAR --output evaluate.html --power_min $P_MIN --power_max $P_MAX --race_min $R_MIN --race_max $R_MAX
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4

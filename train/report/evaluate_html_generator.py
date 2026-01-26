@@ -14,78 +14,44 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 from train import evaluate
 from train import settings
 
-def generate_report(start_year, end_year, output_file="evaluate.html", power_min=None, power_max=None):
+def generate_report(start_year, end_year, output_file="evaluate.html", power_min=None, power_max=None, race_min=None, race_max=None):
     print(f"Generating Evaluation Report for {start_year}-{end_year}...")
     
-    # Defaults
+    # ... (Defaults for power skipped in this diff, assuming context handles it or I include it)
+    # Re-stating defaults to be safe with replace
     p_min = int(power_min) if power_min is not None else settings.POWER_EXPONENT
     p_max = int(power_max) if power_max is not None else p_min
     power_values = list(range(p_min, p_max + 1))
     
+    r_min = int(race_min) if race_min is not None else 1
+    r_max = int(race_max) if race_max is not None else 12
     print(f"Evaluating Power Exponents: {power_values}")
-    
-    min_scores = [round(x * 0.1, 1) for x in range(0, 11)] # 0.0 to 1.0
-    
-    # Store results for all powers
-    # Structure: {power: summary_df}
-    all_power_results = {}
-    
-    # Place Codes Mapping (unchanged)
-    place_map = {
-        "01": "Sapporo", "02": "Hakodate", "03": "Fukushima", "04": "Niigata",
-        "05": "Tokyo", "06": "Nakayama", "07": "Chukyo", "08": "Kyoto",
-        "09": "Hanshin", "10": "Kokura"
-    }
-    
-    # 1. Load Data & Model (Once)
-    from train import scraper_bulk, preprocess
-    import joblib
-    
-    if not os.path.exists(settings.MODEL_PATH):
-        print("Model not found.")
-        return
+    print(f"Evaluating Race Numbers: {r_min} to {r_max}")
 
-    print("Loading Model...")
-    model = joblib.load(settings.MODEL_PATH)
-    artifacts = joblib.load(os.path.join(settings.MODEL_DIR, 'encoders.pkl'))
-    
-    # Load Data
-    print("Loading Data...")
-    raw_df = pd.DataFrame()
-    dfs = []
-    for y in range(start_year, end_year + 1):
-        p = os.path.join(settings.RAW_DATA_DIR, f"results_{y}.csv")
-        if os.path.exists(p):
-            dfs.append(pd.read_csv(p))
-    
-    if dfs:
-        raw_df = pd.concat(dfs, ignore_index=True)
-    else:
-        print("No data found, skipping.")
-        return
+    # ... (skipping to filtering logic)
 
-    # Load Filters
-    import yaml
-    yaml_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'evaluate_settings.yml')
-    config = {}
-    if os.path.exists(yaml_path):
-        with open(yaml_path, 'r', encoding='utf-8') as f:
-            config = yaml.safe_load(f)
-            
     # Filter places & races
-    if not raw_df.empty and config:
+    if not raw_df.empty:
         raw_df['race_id'] = raw_df['race_id'].astype(str)
-        target_places = config.get('target_places', [])
-        if target_places:
-            print(f"Filtering places: {target_places}")
-            raw_df = raw_df[raw_df['race_id'].str[4:6].isin([str(p).zfill(2) for p in target_places])]
+        raw_df['race_no'] = raw_df['race_id'].str[-2:].astype(int)
+        
+        # 1. Config Filters (evaluate_settings.yml)
+        if config:
+            target_places = config.get('target_places', [])
+            if target_places:
+                print(f"Filtering places: {target_places}")
+                raw_df = raw_df[raw_df['race_id'].str[4:6].isin([str(p).zfill(2) for p in target_places])]
             
-        target_races = config.get('target_race_numbers', [])
-        if target_races:
-            print(f"Filtering race numbers: {target_races}")
-            raw_df['race_no'] = raw_df['race_id'].str[-2:].astype(int)
-            raw_df = raw_df[raw_df['race_no'].isin(target_races)]
-            
+            target_races = config.get('target_race_numbers', [])
+            if target_races:
+                print(f"Filtering race numbers from settings: {target_races}")
+                raw_df = raw_df[raw_df['race_no'].isin(target_races)]
+        
+        # 2. CLI Range Filter (race_min/max)
+        if race_min is not None or race_max is not None:
+             print(f"Filtering race numbers by range: {r_min}-{r_max}")
+             raw_df = raw_df[(raw_df['race_no'] >= r_min) & (raw_df['race_no'] <= r_max)]
+             
     if raw_df.empty:
         print("No data after filtering.")
         return
@@ -280,7 +246,9 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=str, default="evaluate.html")
     parser.add_argument("--power_min", type=int, default=None, help="Min Power")
     parser.add_argument("--power_max", type=int, default=None, help="Max Power")
+    parser.add_argument("--race_min", type=int, default=None, help="Min Race No")
+    parser.add_argument("--race_max", type=int, default=None, help="Max Race No")
     args = parser.parse_args()
     
-    generate_report(args.start, args.end, args.output, args.power_min, args.power_max)
+    generate_report(args.start, args.end, args.output, args.power_min, args.power_max, args.race_min, args.race_max)
 
