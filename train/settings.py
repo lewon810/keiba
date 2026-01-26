@@ -9,7 +9,7 @@ MODEL_DIR = os.path.join(BASE_DIR, 'models') # train/models
 MODEL_PATH = os.path.join(MODEL_DIR, 'lgbm_ranker_v2.pkl')
 
 # Feature Engineering Settings
-CATEGORY_COLS = ['jockey_id', 'horse_id', 'trainer_id', 'course_type', 'weather', 'condition', 'sire_id', 'damsire_id']
+CATEGORY_COLS = ['jockey_id', 'horse_id', 'trainer_id', 'course_type', 'weather', 'condition', 'sire_id', 'damsire_id', 'running_style']
 NUM_CLASSES = 1 # Ranker output is 1D score (previously 4 for classification)
 
 # Prediction Settings

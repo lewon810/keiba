@@ -32,7 +32,8 @@ def train_model(start_year, end_year):
     features = [
         'jockey_win_rate', 'trainer_win_rate', 'horse_id', 'jockey_id', 'trainer_id',
         'waku', 'umaban', 'course_type', 'distance', 'weather', 'condition',
-        'lag1_rank', 'lag1_speed_index', 'interval', 'weight_diff'
+        'lag1_rank', 'lag1_speed_index', 'interval', 'weight_diff',
+        'sire_id', 'damsire_id', 'running_style'
     ]
     target = 'rank_class'
     
@@ -68,11 +69,23 @@ def train_model(start_year, end_year):
     os.makedirs(settings.MODEL_DIR, exist_ok=True)
     joblib.dump(model, settings.MODEL_PATH)
     
-    # Save Encoders
+    # Calculate Feature Importance (Gain)
+    importance = model.feature_importance(importance_type='gain')
+    feature_importance = pd.DataFrame({
+        'feature': features,
+        'importance': importance
+    }).sort_values('importance', ascending=False)
+    
+    print("\nFeature Importance (Gain):")
+    print(feature_importance.head(20))
+    
+    # Save Encoders & Importance to Artifacts
+    artifacts['feature_importance'] = feature_importance.to_dict('records')
+    
     encoder_path = os.path.join(settings.MODEL_DIR, 'encoders.pkl')
     joblib.dump(artifacts, encoder_path)
     print(f"Model saved to {settings.MODEL_PATH}")
-    print(f"Encoders saved to {encoder_path}")
+    print(f"Artifacts (Encoders + Importance) saved to {encoder_path}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

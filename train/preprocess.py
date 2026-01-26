@@ -215,6 +215,29 @@ def preprocess(df):
             print(f"Warning: {col} not found in data. Filling with 0.")
             df[f'{col.replace("_id", "")}_win_rate'] = 0.0
 
+    # Feature: Running Style (脚質) [Audit Recommendation]
+    # Based on 'passing' column (e.g. 1-1-2-2)
+    def extract_running_style(passing):
+        if not passing or not isinstance(passing, str) or '-' not in passing:
+            return "unknown"
+        try:
+            # Get first corner position
+            pos_list = [int(p) for p in passing.split('-') if p.isdigit()]
+            if not pos_list: return "unknown"
+            
+            first_pos = pos_list[0]
+            # Simple heuristic:
+            if first_pos <= 2: return "front" # 逃げ・先行
+            if first_pos <= 7: return "middle" # 先行・差し
+            return "back" # 差し・追込
+        except:
+            return "unknown"
+            
+    if 'passing' in df.columns:
+        df['running_style'] = df['passing'].apply(extract_running_style)
+    else:
+        df['running_style'] = "unknown"
+
     # Feature: Weight Diff (Clean)
     # 484(+2) -> +2 extracted by scraper as 'weight_diff'. Ensure numeric.
     if 'weight_diff' not in df.columns:

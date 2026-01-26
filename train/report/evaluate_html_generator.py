@@ -251,6 +251,27 @@ def generate_report(start_year, end_year, output_file="evaluate.html", power_min
     data_uri = base64.b64encode(buf.getvalue()).decode('utf-8')
     html_content += f'<div class="chart"><img src="data:image/png;base64,{data_uri}" style="max-width:100%"></div>'
     
+    # 1b. Feature Importance Chart (NEW)
+    if 'feature_importance' in artifacts:
+        html_content += "<h2>Feature Importance (Gain)</h2>"
+        fi_df = pd.DataFrame(artifacts['feature_importance'])
+        
+        plt.figure(figsize=(10, 8))
+        # Plot top 20
+        top_fi = fi_df.head(20).sort_values('importance', ascending=True)
+        plt.barh(top_fi['feature'], top_fi['importance'], color='skyblue')
+        plt.title("LightGBM Feature Importance (Gain)")
+        plt.xlabel("Total Gain")
+        plt.tight_layout()
+        
+        buf_fi = BytesIO()
+        plt.savefig(buf_fi, format='png')
+        plt.close()
+        fi_uri = base64.b64encode(buf_fi.getvalue()).decode('utf-8')
+        html_content += f'<div class="chart"><img src="data:image/png;base64,{fi_uri}" style="max-width:100%"></div>'
+    else:
+        html_content += "<h2>Feature Importance</h2><p>Feature importance data not found in artifacts. Re-train the model to generate this data.</p>"
+    
     # 2. Best Configuration Table
     html_content += "<h2>Best Configuration Summary (Min 10 bets)</h2>"
     if best_configs:
