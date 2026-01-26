@@ -4,8 +4,9 @@ import os
 from . import settings
 
 def load_data(start_year=None, end_year=None):
-    """Loads all CSVs from raw data directory, optionally filtering by year."""
-    files = [f for f in os.listdir(settings.RAW_DATA_DIR) if f.endswith('.csv')]
+    """Loads all result CSVs from raw data directory, optionally filtering by year."""
+    # Ensure we only load results_*.csv files, excluding things like horse_profiles.csv
+    files = [f for f in os.listdir(settings.RAW_DATA_DIR) if f.startswith('results_') and f.endswith('.csv')]
     dfs = []
     
     # Filter files based on year in filename (results_YYYY.csv)
