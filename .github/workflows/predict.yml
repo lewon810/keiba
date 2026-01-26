@@ -2,6 +2,15 @@ name: Predict Weekend Races
 
 on:
   workflow_dispatch:
+    inputs:
+      power_min:
+        description: 'Min Score Exponent (Power)'
+        required: true
+        default: '3'
+      power_max:
+        description: 'Max Score Exponent (Power)'
+        required: true
+        default: '5'
   schedule:
     # Run every 3 hours to capture new odds/data
     - cron: '0 */3 * * *'
@@ -32,7 +41,9 @@ jobs:
     - name: Run Weekend Predictions (HTML Report)
       run: |
         export PYTHONPATH=$PYTHONPATH:.
-        python -m app.report.predict_html_generator
+        P_MIN=${{ inputs.power_min || '3' }}
+        P_MAX=${{ inputs.power_max || '5' }}
+        python -m app.report.predict_html_generator --power_min $P_MIN --power_max $P_MAX
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4

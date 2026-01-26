@@ -7,10 +7,17 @@ from datetime import datetime, timedelta
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from app import scraper, predictor
+from train import settings
 
-def generate_prediction_report(output_file="predict.html"):
+def generate_prediction_report(output_file="predict.html", power_min=None, power_max=None):
     print("Generating Prediction Report...")
     
+    # Defaults
+    p_min = int(power_min) if power_min is not None else settings.POWER_EXPONENT
+    p_max = int(power_max) if power_max is not None else p_min
+    power_values = list(range(p_min, p_max + 1))
+    print(f"Prediction Power Exponents: {power_values}")
+
     # 1. Determine Target Date (Saturday or Sunday)
     today = datetime.now()
     target_dates = []
@@ -49,21 +56,47 @@ def generate_prediction_report(output_file="predict.html"):
                 if not race_data: continue
                 
                 # Predict
-                df_pred = predictor.predict(race_data, return_df=True)
+                # Call with p_min just to get base DF
+                df_pred = predictor.predict(race_data, return_df=True, power=p_min)
                 
                 if isinstance(df_pred, str): # Error message
                     print(df_pred)
                     continue
+                
+                # Calculate scores for ALL powers
+                # Ensure odds are numeric
+                def parse_odds(o):
+                    try: return float(o)
+                    except: return 0.0
+                    
+                # Odds usually come as strings in 'odds' column or parsed? 
+                # predictor returns 'odds_val' in df usually
+                if 'odds_val' not in df_pred.columns:
+                     df_pred['odds_val'] = df_pred['odds'].apply(parse_odds)
+                     
+                for p in power_values:
+                    col_name = f'Score(P={p})'
+                    df_pred[col_name] = (df_pred['win_prob'] ** p) * df_pred['odds_val']
+                    
+                # Sort by the LAST power (highest exponent -> favors winners+odds most aggressively?)
+                # Or just keep default sort from predictor?
+                # Predictor sorts by 'score' (which was p_min).
+                # Let's sort by max power or default 4
+                sort_p = 4 if 4 in power_values else power_values[-1]
+                df_pred = df_pred.sort_values(f'Score(P={sort_p})', ascending=False)
                     
                 # Store
                 all_results.append({
                     'date': date_str,
                     'race_id': race['id'],
                     'title': race['title'],
-                    'df': df_pred
+                    'df': df_pred,
+                    'sort_power': sort_p
                 })
             except Exception as e:
                 print(f"Error processing {race['id']}: {e}")
+                import traceback
+                traceback.print_exc()
 
     # 3. Generate HTML
     html_content = f"""
@@ -89,17 +122,18 @@ def generate_prediction_report(output_file="predict.html"):
     <body>
         <h1>Weekend Predictions</h1>
         <p style="text-align:center;">Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>
+        <p style="text-align:center;">Powers: {power_values}</p>
     """
     
     if not all_results:
         html_content += "<p>No races found or prediction failed.</p>"
     else:
-        # Sort by Date, then Time/ID?
-        # race_id is usually chronological
+        # Sort by Date, then Time/ID
         all_results.sort(key=lambda x: x['race_id'])
         
         for res in all_results:
             df = res['df']
+            sort_p = res['sort_power']
             
             # Context
             weather = "?"
@@ -123,13 +157,19 @@ def generate_prediction_report(output_file="predict.html"):
                             <th>Jockey</th>
                             <th>Odds</th>
                             <th>Win%</th>
-                            <th>Score</th>
+            """
+            
+            # Dynamic Score Headers
+            for p in power_values:
+                 html_content += f"<th>Score(P={p})</th>"
+                 
+            html_content += """
                         </tr>
                     </thead>
                     <tbody>
             """
             
-            # Rows (Top 5?)
+            # Rows (Top 10)
             for i, (_, row) in enumerate(df.head(10).iterrows()):
                 symbol = ""
                 if i == 0: symbol = "◎"
@@ -139,7 +179,6 @@ def generate_prediction_report(output_file="predict.html"):
                 
                 odds = row.get('odds', '---')
                 win_prob = row.get('win_prob', 0) * 100
-                score = row.get('score', 0)
                 
                 html_content += f"""
                         <tr>
@@ -149,9 +188,14 @@ def generate_prediction_report(output_file="predict.html"):
                             <td>{row.get('jockey', '')}</td>
                             <td>{odds}</td>
                             <td>{win_prob:.1f}%</td>
-                            <td>{score:.4f}</td>
-                        </tr>
                 """
+                
+                for p in power_values:
+                    score = row.get(f'Score(P={p})', 0)
+                    style = "font-weight:bold" if p == sort_p else ""
+                    html_content += f'<td style="{style}">{score:.4f}</td>'
+                    
+                html_content += "</tr>"
                 
             html_content += """
                     </tbody>
@@ -167,6 +211,12 @@ def generate_prediction_report(output_file="predict.html"):
     print(f"Saved {output_file}")
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--power_min", type=int, default=None, help="Min Power")
+    parser.add_argument("--power_max", type=int, default=None, help="Max Power")
+    args = parser.parse_args()
+
     # Ensure output dir
     os.makedirs("app/report", exist_ok=True)
-    generate_prediction_report("predict.html")
+    generate_prediction_report("predict.html", power_min=args.power_min, power_max=args.power_max)

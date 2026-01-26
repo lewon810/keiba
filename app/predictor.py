@@ -12,7 +12,7 @@ except ImportError:
         MODEL_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'train', 'data', 'model')
         MODEL_PATH = os.path.join(MODEL_DIR, 'model_lgb.pkl')
 
-def predict(race_data, return_df=False):
+def predict(race_data, return_df=False, power=None):
     """
     Takes race data (list of dicts) and returns predictions using the trained model.
     If return_df is True, returns the pandas DataFrame with scores.
@@ -158,8 +158,9 @@ def predict(race_data, return_df=False):
         # this strategy fails. Assuming odds exist or fallback to prob.
         
         # Hybrid Score: Use Expectation if odds exist, else raw prob
+        use_power = power if power is not None else settings.POWER_EXPONENT
         df['score'] = df.apply(
-            lambda x: (x['win_prob'] ** 4) * x['odds_val'] if x['odds_val'] > 0 else x['win_prob'], 
+            lambda x: (x['win_prob'] ** use_power) * x['odds_val'] if x['odds_val'] > 0 else x['win_prob'], 
             axis=1
         )
 
@@ -180,7 +181,7 @@ def predict(race_data, return_df=False):
         context_weather = race_data[0].get('weather', 'Unknown')
         context_distance = race_data[0].get('distance', 'Unknown')
 
-        result_lines = ["Prediction Ranking (Score = Prob^4 * Odds):"]
+        result_lines = [f"Prediction Ranking (Score = Prob^{use_power} * Odds):"]
         result_lines.append(f"Context: {context_weather} / {context_distance}m")
         result_lines.append("-" * 40)
 

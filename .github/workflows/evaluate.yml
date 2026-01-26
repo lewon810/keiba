@@ -15,6 +15,14 @@ on:
         description: 'Evaluation Year'
         required: true
         default: '2025'
+      power_min:
+        description: 'Min Score Exponent (Power)'
+        required: true
+        default: '3'
+      power_max:
+        description: 'Max Score Exponent (Power)'
+        required: true
+        default: '5'
   schedule:
     # Run weekly or so? User didn't specify schedule prefernce for this one.
     - cron: '0 0 * * 1' # Every Monday
@@ -55,8 +63,10 @@ jobs:
         # Ensure report dir exists
         mkdir -p train/report
         EVAL_YEAR=${{ inputs.eval_year || '2025' }}
-        echo "Evaluating on $EVAL_YEAR"
-        python -m train.report.evaluate_html_generator --start $EVAL_YEAR --end $EVAL_YEAR --output evaluate.html
+        P_MIN=${{ inputs.power_min || '3' }}
+        P_MAX=${{ inputs.power_max || '5' }}
+        echo "Evaluating on $EVAL_YEAR with Power Range $P_MIN-$P_MAX"
+        python -m train.report.evaluate_html_generator --start $EVAL_YEAR --end $EVAL_YEAR --output evaluate.html --power_min $P_MIN --power_max $P_MAX
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4

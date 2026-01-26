@@ -158,6 +158,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Keiba Prediction App")
     parser.add_argument("url", nargs="?", help="Netkeiba race URL to predict")
     parser.add_argument("--date", help="Date to search races (YYYYMMDD)")
+    parser.add_argument("--power", type=float, default=None, help="Exponent for Win Prob (Default: 4)")
     args = parser.parse_args()
 
     def run_prediction(url, title=None):
@@ -173,7 +174,7 @@ if __name__ == "__main__":
                 print("Failed to fetch data.")
                 return
             
-            result = predictor.predict(race_data)
+            result = predictor.predict(race_data, power=args.power)
             print("-" * 50)
             print(result)
             print("-" * 50)
