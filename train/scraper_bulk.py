@@ -211,6 +211,8 @@ def scrape_race_data(race_id):
                 "horse_weight": horse_weight,
                 "weight_diff": weight_diff,
                 "time": cols[7].get_text(strip=True),
+                "passing": cols[10].get_text(strip=True) if len(cols) > 10 else "",
+                "last_3f": cols[11].get_text(strip=True) if len(cols) > 11 else "",
                 "odds": cols[12].get_text(strip=True),
                 "popularity": cols[13].get_text(strip=True)
             }

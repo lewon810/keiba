@@ -96,10 +96,13 @@ def predict(race_data, return_df=False, power=None):
         df['trainer_win_rate'] = df['trainer_id'].apply(get_trainer_rate)
 
         # 3. Categorical Encoding (Label Encoder)
-        # 3. Categorical Encoding (Label Encoder)
-        cat_cols = ['horse_id', 'jockey_id', 'trainer_id', 'course_type', 'weather', 'condition']
+        cat_cols = ['horse_id', 'jockey_id', 'trainer_id', 'course_type', 'weather', 'condition', 'sire_id', 'damsire_id', 'running_style']
 
         for col in cat_cols:
+            # Handle Pedigree/Style missing in input
+            if col not in df.columns:
+                 df[col] = "unknown"
+                 
             # Keys in encoders.pkl are bare column names (e.g. 'horse_id')
             if col in artifacts:
                 le = artifacts[col]
@@ -112,11 +115,10 @@ def predict(race_data, return_df=False, power=None):
 
                 df[col] = le.transform(df[col]).astype(int)
             else:
-                 # If encoder missing, fill 0 (though this shouldn't happen if trained correctly)
-                 print(f"Warning: Encoder for {col} not found.")
+                 # If encoder missing, fill 0
                  df[col] = 0
 
-        # 4. Numeric cleanup
+        # ... (Numeric cleanup skipped in this diff, assuming follow-up or inclusion)
         # 4. Numeric cleanup
         df['waku'] = pd.to_numeric(df['waku'], errors='coerce').fillna(0)
         df['umaban'] = pd.to_numeric(df['umaban'], errors='coerce').fillna(0)
@@ -131,7 +133,8 @@ def predict(race_data, return_df=False, power=None):
         features = [
             'jockey_win_rate', 'trainer_win_rate', 'horse_id', 'jockey_id', 'trainer_id',
             'waku', 'umaban', 'course_type', 'distance', 'weather', 'condition',
-            'lag1_rank', 'lag1_speed_index', 'interval', 'weight_diff'
+            'lag1_rank', 'lag1_speed_index', 'interval', 'weight_diff',
+            'sire_id', 'damsire_id', 'running_style'
         ]
 
         # LightGBM Multiclass returns (N, 4) probability matrix
