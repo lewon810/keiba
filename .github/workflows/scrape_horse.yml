@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   list-files:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
@@ -26,7 +26,7 @@ jobs:
 
   scrape-horse:
     needs: list-files
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     timeout-minutes: 360 # 6 hours
     continue-on-error: true # One failure shouldn't stop others
     strategy:
