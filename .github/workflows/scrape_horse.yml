@@ -7,15 +7,39 @@ permissions:
   contents: write
 
 jobs:
+  list-files:
+    runs-on: windows-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: List CSV files
+        id: set-matrix
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem -Path "train/data/raw/results_*.csv" | Select-Object -ExpandProperty Name
+          $json = $files | ConvertTo-Json -Compress
+          echo "Found files: $json"
+          echo "matrix=$json" >> $env:GITHUB_OUTPUT
+
   scrape-horse:
+    needs: list-files
     runs-on: windows-latest
     timeout-minutes: 360 # 6 hours
+    continue-on-error: true # One failure shouldn't stop others
+    strategy:
+      max-parallel: 4 # Limit concurrency to avoid too many conflicts
+      fail-fast: false
+      matrix:
+        file: ${{ fromJson(needs.list-files.outputs.matrix) }}
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0 # Fetch all history for push safety (though usually fine with shallow for simple pushes)
+        fetch-depth: 0 # Fetch all history for push safety
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -27,15 +51,51 @@ jobs:
       run: |
         pip install -r requirements.txt
 
-    - name: Run Horse Scraper
+    - name: Run Horse Scraper for ${{ matrix.file }}
       run: |
-        python -m train.scraper_horse
+        # Scrape to a temporary file first
+        python -m train.scraper_horse --input "${{ matrix.file }}" --output "scraped_temp.csv" --target "train/data/raw/horse_profiles.csv"
 
-    - name: Commit and Push changes
+    - name: Merge and Push changes
+      shell: pwsh
       run: |
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
-        git add train/data/raw/horse_profiles.csv
-        # Check if there are changes to commit
-        git diff --staged --quiet || git commit -m "Update horse_profiles.csv via scraper [skip ci]"
-        git push
+        
+        $maxRetries = 10
+        $retryCount = 0
+        $success = $false
+        
+        while (-not $success -and $retryCount -lt $maxRetries) {
+            try {
+                git pull origin main --rebase
+                
+                # Merge local temp file into main profile DB
+                python -m train.scraper_horse --merge_source "scraped_temp.csv" --merge_target "train/data/raw/horse_profiles.csv"
+                
+                git add train/data/raw/horse_profiles.csv
+                
+                # Check for changes
+                $status = git status --porcelain
+                if (-not $status) {
+                    Write-Host "No changes to commit."
+                    $success = $true
+                    break
+                }
+                
+                git commit -m "Update horse_profiles.csv via scraper (${{ matrix.file }}) [skip ci]"
+                git push origin main
+                $success = $true
+                Write-Host "Successfully pushed changes."
+            }
+            catch {
+                Write-Host "Push failed, retrying... ($retryCount/$maxRetries)"
+                $retryCount++
+                Start-Sleep -Seconds (Get-Random -Minimum 5 -Maximum 15)
+            }
+        }
+        
+        if (-not $success) {
+            Write-Error "Failed to push changes after $maxRetries attempts."
+            exit 1
+        }
