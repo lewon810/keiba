@@ -310,7 +310,9 @@ def merge_profiles(source_path, target_path):
             # drop_duplicates keeps 'first' by default.
             # If we trust current DB, we might want to keep that. 
             # But usually we just want *a* record.
-            df_combined = df_combined.drop_duplicates(subset=['horse_id'], keep='first')
+            # drop_duplicates calculates based on the order. Since we concat [target, source], 
+            # keep='last' will keep the source (new) version if duplicate exists.
+            df_combined = df_combined.drop_duplicates(subset=['horse_id'], keep='last')
             after = len(df_combined)
             print(f"Merged. Rows: {before} -> {after} (Dropped {before - after} duplicates)")
         
