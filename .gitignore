@@ -8,3 +8,6 @@ docs_content.txt
 
 # Generated Reports
 public/
+
+.gemini/
+gha-creds-*.json
