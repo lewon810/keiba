@@ -8,3 +8,9 @@ docs_content.txt
 
 # Generated Reports
 public/
+
+# gemini-cli settings
+.gemini/
+
+# GitHub App credentials
+gha-creds-*.json
