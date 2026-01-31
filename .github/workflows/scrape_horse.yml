@@ -59,6 +59,7 @@ jobs:
     - name: Merge and Push changes
       shell: pwsh
       run: |
+        $ErrorActionPreference = 'Stop'
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
         
@@ -68,9 +69,14 @@ jobs:
         
         while (-not $success -and $retryCount -lt $maxRetries) {
             try {
-                git pull origin main --rebase
+                Write-Host "Attempting merge and push ($($retryCount + 1)/$maxRetries)..."
+                
+                # Align with remote
+                git fetch origin main
+                git reset --hard origin/main
                 
                 # Merge local temp file into main profile DB
+                # This re-applies the changes on top of the latest code
                 python -m train.scraper_horse --merge_source "scraped_temp.csv" --merge_target "train/data/raw/horse_profiles.csv"
                 
                 git add train/data/raw/horse_profiles.csv
@@ -89,7 +95,8 @@ jobs:
                 Write-Host "Successfully pushed changes."
             }
             catch {
-                Write-Host "Push failed, retrying... ($retryCount/$maxRetries)"
+                Write-Host "Action failed: $_"
+                Write-Host "Retrying in random seconds..."
                 $retryCount++
                 Start-Sleep -Seconds (Get-Random -Minimum 5 -Maximum 15)
             }
