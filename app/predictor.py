@@ -97,6 +97,53 @@ def predict(race_data, return_df=False, power=None):
 
         # 3. Categorical Encoding (Label Encoder)
         cat_cols = ['horse_id', 'jockey_id', 'trainer_id', 'course_type', 'weather', 'condition', 'sire_id', 'damsire_id', 'running_style']
+        
+        # 2c. Sire/DamSire Win Rate
+        for col in ['sire_win_rate', 'damsire_win_rate']:
+            base_col = col.replace('_win_rate', '_id') # sire_id
+            map_data = artifacts.get(col, {})
+            def get_pedigree_rate(pid):
+                if pid in map_data: return map_data[pid]
+                if str(pid) in map_data: return map_data[str(pid)]
+                return 0.0
+            # Ensure base col exists first (handled in loop below? No, must exist for apply)
+            if base_col not in df.columns: df[base_col] = 'unknown'
+            df[col] = df[base_col].apply(get_pedigree_rate)
+
+        # 2d. Aptitude Features (Turf/Dirt, Distance)
+        # Turf/Dirt
+        apt_type_map = artifacts.get('aptitude_type', {})
+        def get_type_aptitude(row):
+            hid = str(row['horse_id'])
+            ctype = row.get('course_type', 'unknown')
+            if hid in apt_type_map and ctype in apt_type_map[hid]:
+                return apt_type_map[hid][ctype]
+            return 0.0
+        df['course_type_win_rate'] = df.apply(get_type_aptitude, axis=1)
+
+        # Distance
+        apt_dist_map = artifacts.get('aptitude_dist', {})
+        def get_dist_cat(d):
+            try:
+                d = int(d)
+                if d < 1400: return 'sprint'
+                if d < 1900: return 'mile'
+                if d < 2500: return 'intermediate'
+                return 'long'
+            except:
+                return 'unknown'
+        
+        # Create temp dist_cat if needed
+        df['dist_cat_temp'] = df['distance'].apply(get_dist_cat)
+        
+        def get_dist_aptitude(row):
+            hid = str(row['horse_id'])
+            cat = row.get('dist_cat_temp', 'unknown')
+            if hid in apt_dist_map and cat in apt_dist_map[hid]:
+                return apt_dist_map[hid][cat]
+            return 0.0
+        df['dist_cat_win_rate'] = df.apply(get_dist_aptitude, axis=1)
+
 
         for col in cat_cols:
             # Handle Pedigree/Style missing in input
@@ -134,7 +181,9 @@ def predict(race_data, return_df=False, power=None):
             'jockey_win_rate', 'trainer_win_rate', 'horse_id', 'jockey_id', 'trainer_id',
             'waku', 'umaban', 'course_type', 'distance', 'weather', 'condition',
             'lag1_rank', 'lag1_speed_index', 'interval', 'weight_diff',
-            'sire_id', 'damsire_id', 'running_style'
+            'sire_id', 'damsire_id', 'running_style',
+            'sire_win_rate', 'damsire_win_rate',
+            'course_type_win_rate', 'dist_cat_win_rate'
         ]
 
         # LightGBM Multiclass returns (N, 4) probability matrix

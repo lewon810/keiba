@@ -238,6 +238,89 @@ def preprocess(df):
     else:
         df['running_style'] = "unknown"
 
+    # Feature: Aptitude (Turf/Dirt, Distance) - Expanding Window
+    # Must be done after sorting by date (already sorted)
+    print("Calculating Aptitude Features (Turf/Dirt, Distance)...")
+    
+    # Turf/Dirt Win Rate
+    # Group by horse_id and course_type
+    if 'course_type' in df.columns:
+        # Create separate columns for turf and dirt rates
+        # We need to pivot or calculate conditionally
+        # Easier: Expanding mean of is_win * (course_type == 'turf')? No.
+        # Subset approach:
+        # Calculate expanding mean WITHIN the subgroup of (horse, type)
+        # Then merge back? Or transform?
+        
+        # We want 'horse_turf_win_rate' on the row of a Turf race to represent PAST Turf performance.
+        # But for inference, we want the Last Known Turf Rate regardless of current race type? 
+        # Usually checking "Turf Aptitude" for a Turf race is what matters.
+        # If a horse runs in Dirt, its Turf Aptitude is static (previous val).
+        
+        # Strategy: Calculate expanding stats per (horse, type), then forward fill per horse?
+        # Simpler for now: Just calculate expanding rate given the current race context.
+        # If I am running in Turf, use my past Turf stats.
+        
+        # 1. Group by [horse, type], cal expanding mean
+        df['course_type_win_rate'] = df.groupby(['horse_id', 'course_type'])['is_win'].transform(
+            lambda x: x.shift(1).expanding().mean()
+        ).fillna(0)
+        
+        # 2. Extract specific columns for artifacts/inspection if needed, but 'course_type_win_rate' 
+        # is the effective feature for the model (interaction term handles the rest).
+        # But user requested specific "Turf Aptitude", "Dirt Aptitude".
+        # Let's pivot to explicit columns for all rows if possible, but that's expensive (expanding per type).
+        # Let's stick to 'same_type_win_rate' (aptitude for THIS race type).
+        
+        # Wait, for artifacts we need to store the map: HorseID -> {Turf: 0.5, Dirt: 0.1}
+        # Final stats per horse per type
+        final_type_stats = df.groupby(['horse_id', 'course_type'])['is_win'].agg(['count', 'sum']).reset_index()
+        final_type_stats['rate'] = final_type_stats['sum'] / final_type_stats['count']
+        
+        # Convert to nested dict: {horse_id: {turf: 0.5, dirt: 0.0}}
+        aptitude_type_map = {}
+        for _, row in final_type_stats.iterrows():
+            hid = str(row['horse_id'])
+            ctype = row['course_type']
+            if hid not in aptitude_type_map: aptitude_type_map[hid] = {}
+            aptitude_type_map[hid][ctype] = row['rate']
+    else:
+        aptitude_type_map = {}
+        
+    # Distance Category Win Rate
+    # Sprint: <1400, Mile: 1400-1899, Intermediate: 1900-2400, Long: >2400
+    if 'distance' in df.columns:
+        def get_dist_cat(d):
+            try:
+                d = int(d)
+                if d < 1400: return 'sprint'
+                if d < 1900: return 'mile'
+                if d < 2500: return 'intermediate'
+                return 'long'
+            except:
+                return 'unknown'
+                
+        df['dist_cat'] = df['distance'].apply(get_dist_cat)
+        
+        # Expanding mean per (horse, dist_cat)
+        df['dist_cat_win_rate'] = df.groupby(['horse_id', 'dist_cat'])['is_win'].transform(
+            lambda x: x.shift(1).expanding().mean()
+        ).fillna(0)
+        
+        # Artifacts
+        final_dist_stats = df.groupby(['horse_id', 'dist_cat'])['is_win'].agg(['count', 'sum']).reset_index()
+        final_dist_stats['rate'] = final_dist_stats['sum'] / final_dist_stats['count']
+        
+        aptitude_dist_map = {}
+        for _, row in final_dist_stats.iterrows():
+            hid = str(row['horse_id'])
+            cat = row['dist_cat']
+            if hid not in aptitude_dist_map: aptitude_dist_map[hid] = {}
+            aptitude_dist_map[hid][cat] = row['rate']
+    else:
+        aptitude_dist_map = {}
+
+
     # Feature: Weight Diff (Clean)
     # 484(+2) -> +2 extracted by scraper as 'weight_diff'. Ensure numeric.
     if 'weight_diff' not in df.columns:
@@ -250,8 +333,10 @@ def preprocess(df):
     artifacts = {
         'jockey_win_rate': jockey_win_rate_map,
         'trainer_win_rate': trainer_win_rate_map,
-        'sire_win_rate': sire_win_rate_map,       # New
-        'damsire_win_rate': damsire_win_rate_map, # New
+        'sire_win_rate': sire_win_rate_map,
+        'damsire_win_rate': damsire_win_rate_map,
+        'aptitude_type': aptitude_type_map, # New
+        'aptitude_dist': aptitude_dist_map, # New
         'course_stats': None # Placeholder
     }
     
@@ -326,12 +411,37 @@ def transform(df, artifacts):
         else:
             df['speed_index'] = 0
 
+    # Feature: Running Style (Validation Only - Leakage for Inference if using current passing)
+    # If passing exists (results data), calculate it. Else unknown.
+    def extract_running_style(passing):
+        if not passing or not isinstance(passing, str) or '-' not in passing:
+            return "unknown"
+        try:
+            # Get first corner position
+            pos_list = [int(p) for p in passing.split('-') if p.isdigit()]
+            if not pos_list: return "unknown"
+            
+            first_pos = pos_list[0]
+            # Simple heuristic:
+            if first_pos <= 2: return "front" # 逃げ・先行
+            if first_pos <= 7: return "middle" # 先行・差し
+            return "back" # 差し・追込
+        except:
+            return "unknown"
+            
+    if 'passing' in df.columns:
+        df['running_style'] = df['passing'].apply(extract_running_style)
+    else:
+        df['running_style'] = "unknown"
+
     # Lag Features (Past Performance) - Self-contained sort
     df = df.sort_values(['horse_id', 'date'])
     
-    # Ensure rank is numeric for lag calculation
+    # Ensure rank is numeric for lag calculation, create if missing (inference)
     if 'rank' in df.columns:
         df['rank'] = pd.to_numeric(df['rank'], errors='coerce')
+    else:
+        df['rank'] = np.nan
         
     df['lag1_rank'] = df.groupby('horse_id')['rank'].shift(1).fillna(99).astype(int)
     df['lag1_speed_index'] = df.groupby('horse_id')['speed_index'].shift(1).fillna(0)
@@ -363,6 +473,45 @@ def transform(df, artifacts):
                 df[col] = 0.0
         else:
             df[col] = 0.0
+            
+    # Aptitude Features Application (Inference)
+    # Apply using aptitude maps
+    if 'aptitude_type' in artifacts:
+        type_map = artifacts['aptitude_type']
+        def get_type_aptitude(row):
+            hid = str(row['horse_id'])
+            ctype = row.get('course_type', 'unknown')
+            if hid in type_map and ctype in type_map[hid]:
+                return type_map[hid][ctype]
+            return 0.0
+        df['course_type_win_rate'] = df.apply(get_type_aptitude, axis=1)
+    else:
+        df['course_type_win_rate'] = 0.0
+
+    if 'aptitude_dist' in artifacts:
+        dist_map = artifacts['aptitude_dist']
+        def get_dist_cat(d):
+            try:
+                d = int(d)
+                if d < 1400: return 'sprint'
+                if d < 1900: return 'mile'
+                if d < 2500: return 'intermediate'
+                return 'long'
+            except:
+                return 'unknown'
+        
+        # Ensure dist_cat exists
+        df['dist_cat'] = df['distance'].apply(get_dist_cat)
+        
+        def get_dist_aptitude(row):
+            hid = str(row['horse_id'])
+            cat = row.get('dist_cat', 'unknown')
+            if hid in dist_map and cat in dist_map[hid]:
+                return dist_map[hid][cat]
+            return 0.0
+        df['dist_cat_win_rate'] = df.apply(get_dist_aptitude, axis=1)
+    else:
+        df['dist_cat_win_rate'] = 0.0
             
     # Weight Diff
     if 'weight_diff' in df.columns:

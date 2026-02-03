@@ -2,6 +2,7 @@ import os
 import sys
 import pandas as pd
 from datetime import datetime, timedelta
+from collections import defaultdict
 
 # Add project root
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -9,15 +10,36 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 from app import scraper, predictor
 from train import settings
 
+SEX_MAP = {
+    '牡': 'Male',
+    '牝': 'Female',
+    'セ': 'Gelding'
+}
+
+PLACE_MAP = {
+    '01': 'Sapporo',
+    '02': 'Hakodate',
+    '03': 'Fukushima',
+    '04': 'Niigata',
+    '05': 'Tokyo',
+    '06': 'Nakayama',
+    '07': 'Chukyo',
+    '08': 'Kyoto',
+    '09': 'Hanshin',
+    '10': 'Kokura'
+}
+
 def generate_prediction_report(output_file="predict.html", power_min=None, power_max=None):
-    print("Generating Prediction Report...")
+    print("Generating Prediction Report (Tabbed View)...")
     
     # Defaults
-    p_min = int(power_min) if power_min is not None else settings.POWER_EXPONENT
+    # User requested fixed default power 4, but let's keep args support just in case,
+    # but strictly prioritize showing the single power score primarily.
+    default_p = 4
+    p_min = int(power_min) if power_min is not None else default_p
     p_max = int(power_max) if power_max is not None else p_min
     power_values = list(range(p_min, p_max + 1))
-    print(f"Prediction Power Exponents: {power_values}")
-
+    
     # 1. Determine Target Date (Saturday or Sunday)
     today = datetime.now()
     target_dates = []
@@ -32,7 +54,7 @@ def generate_prediction_report(output_file="predict.html", power_min=None, power
     elif today.weekday() == 6: # Sunday
         target_dates.append(today.strftime('%Y%m%d'))
     else:
-        # Debug/Dev: Force next Saturday for testing if weekday
+        # Debug/Dev: Force next Saturday
         print("Not a weekend. Searching for next Saturday...")
         days_ahead = 5 - today.weekday()
         if days_ahead <= 0: days_ahead += 7
@@ -41,8 +63,10 @@ def generate_prediction_report(output_file="predict.html", power_min=None, power
     print(f"Target Dates: {target_dates}")
     
     # 2. Search & Predict
-    all_results = []
-    
+    # Structure: data[date][venue_code] = list of race_results
+    grouped_data = defaultdict(lambda: defaultdict(list))
+    venue_names = {} # code -> name map for this run
+
     for date_str in target_dates:
         # Search all races
         races = scraper.search_races(date_str)
@@ -50,49 +74,58 @@ def generate_prediction_report(output_file="predict.html", power_min=None, power
         
         for race in races:
             try:
-                print(f"Predicting {race['id']} ({race['title']})...")
+                # race['id'] = YYYYPP... (12 digits)
+                # PP is 4:6
+                race_id = race['id']
+                place_code = race_id[4:6]
+                venue_name = PLACE_MAP.get(place_code, f"Place {place_code}")
+                venue_names[place_code] = venue_names.get(place_code, venue_name)
+                
+                print(f"Predicting {race_id} ({race['title']})...")
                 # Scrape
                 race_data = scraper.fetch_race_data(race['url'])
                 if not race_data: continue
                 
                 # Predict
-                # Call with p_min just to get base DF
-                df_pred = predictor.predict(race_data, return_df=True, power=p_min)
+                df_pred = predictor.predict(race_data, return_df=True, power=p_min) # Start with min
                 
                 if isinstance(df_pred, str): # Error message
                     print(df_pred)
                     continue
                 
-                # Calculate scores for ALL powers
-                # Ensure odds are numeric
+                # Calculate scores
                 def parse_odds(o):
                     try: return float(o)
                     except: return 0.0
-                    
-                # Odds usually come as strings in 'odds' column or parsed? 
-                # predictor returns 'odds_val' in df usually
+                
                 if 'odds_val' not in df_pred.columns:
                      df_pred['odds_val'] = df_pred['odds'].apply(parse_odds)
                      
                 for p in power_values:
                     col_name = f'Score(P={p})'
                     df_pred[col_name] = (df_pred['win_prob'] ** p) * df_pred['odds_val']
-                    
-                # Sort by the LAST power (highest exponent -> favors winners+odds most aggressively?)
-                # Or just keep default sort from predictor?
-                # Predictor sorts by 'score' (which was p_min).
-                # Let's sort by max power or default 4
-                sort_p = 4 if 4 in power_values else power_values[-1]
+                
+                # Sort by default_p if present, else max
+                sort_p = default_p if default_p in power_values else power_values[-1]
                 df_pred = df_pred.sort_values(f'Score(P={sort_p})', ascending=False)
-                    
-                # Store
-                all_results.append({
-                    'date': date_str,
-                    'race_id': race['id'],
+                
+                # Meta
+                weather = "?"
+                dist = "?"
+                course = "?"
+                if not df_pred.empty and 'weather' in df_pred.columns:
+                    weather = df_pred.iloc[0]['weather']
+                    dist = df_pred.iloc[0]['distance']
+                    course = df_pred.iloc[0]['course_type']
+
+                grouped_data[date_str][place_code].append({
+                    'id': race_id,
                     'title': race['title'],
+                    'race_no': race['race_no'],
                     'df': df_pred,
-                    'sort_power': sort_p
+                    'meta': f"{course} {dist}m {weather}"
                 })
+                
             except Exception as e:
                 print(f"Error processing {race['id']}: {e}")
                 import traceback
@@ -101,109 +134,223 @@ def generate_prediction_report(output_file="predict.html", power_min=None, power
     # 3. Generate HTML
     html_content = f"""
     <!DOCTYPE html>
-    <html>
+    <html lang="ja">
     <head>
-        <title>Keiba Prediction</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        <title>Keiba Prediction Report</title>
+        <!-- Bootstrap 4 CSS -->
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
         <style>
-            body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background-color: #f9f9f9; }}
-            h1 {{ color: #333; text-align: center; }}
-            .race-container {{ background: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; padding: 15px; }}
-            .race-header {{ border-bottom: 2px solid #007bff; padding-bottom: 10px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }}
-            .race-title {{ font-size: 1.2em; font-weight: bold; color: #007bff; }}
-            .race-meta {{ color: #666; font-size: 0.9em; }}
-            table {{ border-collapse: collapse; width: 100%; }}
-            th, td {{ padding: 10px; text-align: left; border-bottom: 1px solid #eee; }}
-            th {{ background-color: #f8f9fa; color: #555; }}
-            tr:first-child td {{ font-weight: bold; background-color: #fff3cd; }} /* Top Pick Highlight */
-            .symbol {{ font-weight: bold; width: 30px; display: inline-block; text-align: center; }}
-            .score-bar {{ height: 4px; background-color: #28a745; }}
+            body {{ padding: 20px; background-color: #f4f7f6; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }}
+            .card {{ margin-top: 20px; border: none; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius: 8px; overflow: hidden; }}
+            
+            /* Card Header: Black background, White text */
+            .card-header {{ 
+                background-color: #212529; 
+                color: white; 
+                border-bottom: none; 
+                padding: 10px 15px;
+            }}
+            .race-title-text {{ font-size: 1.1em; font-weight: bold; }}
+            .race-meta {{ font-size: 0.9em; color: #ced4da; float: right; }}
+            
+            /* Tabs */
+            .nav-tabs {{ border-bottom: 2px solid #dee2e6; }}
+            .nav-link {{ border: none; color: #495057; }}
+            
+            /* Level 1: Date (Standard Tabs) */
+            #dateTabs .nav-link.active {{ 
+                border-bottom: 3px solid #007bff; 
+                color: #007bff; 
+                font-weight: bold; 
+                background: transparent;
+            }}
+            
+            /* Level 2: Venue (Blue Pills/Tabs) */
+            .venue-tabs .nav-link {{
+                background-color: transparent;
+                margin-right: 5px;
+                border-radius: 4px;
+                padding: 8px 15px;
+            }}
+            .venue-tabs .nav-link.active {{ 
+                background-color: #007bff; 
+                color: white !important; 
+            }}
+            
+            /* Level 3: Race (Light Pills) */
+            .race-tabs .nav-link {{
+                padding: 5px 15px;
+                margin-right: 5px;
+                border: 1px solid transparent;
+            }}
+            .race-tabs .nav-link.active {{ 
+                background-color: white; 
+                color: #212529 !important; 
+                font-weight: bold; 
+                border: 1px solid #dee2e6;
+                border-bottom: none;
+                box-shadow: 0 -2px 5px rgba(0,0,0,0.05);
+            }}
+            
+            .table th {{ background-color: #f8f9fa; border-top: none; font-weight: 600; }}
+            .symbol {{ font-size: 1.2em; }}
+            
+            /* Top Pick: Yellow Highlight */
+            .top-pick-row {{ background-color: #fff3cd !important; }}
+            
+            h1 {{ margin-bottom: 10px; text-align: center; color: #333; font-weight: 700; }}
+            .header-icon {{ font-size: 1.5em; margin-right: 10px; }}
         </style>
     </head>
     <body>
-        <h1>Weekend Predictions</h1>
-        <p style="text-align:center;">Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>
-        <p style="text-align:center;">Powers: {power_values}</p>
+        <div class="container-fluid" style="max-width: 800px; margin: 0 auto;">
+            <h1><span class="header-icon">🏇</span>Keiba AI Predictions</h1>
+            <p class="text-center text-muted" style="margin-bottom: 30px;">Generated at: {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>
     """
     
-    if not all_results:
-        html_content += "<p>No races found or prediction failed.</p>"
+    if not grouped_data:
+        html_content += "<div class='alert alert-warning'>No race data found.</div>"
     else:
-        # Sort by Date, then Time/ID
-        all_results.sort(key=lambda x: x['race_id'])
-        
-        for res in all_results:
-            df = res['df']
-            sort_p = res['sort_power']
-            
-            # Context
-            weather = "?"
-            dist = "?"
-            if not df.empty and 'weather' in df.columns:
-                weather = df.iloc[0]['weather']
-                dist = df.iloc[0]['distance']
-            
+        # --- Level 1: Date Tabs ---
+        html_content += '<ul class="nav nav-tabs" id="dateTabs" role="tablist">'
+        sorted_dates = sorted(grouped_data.keys())
+        for idx, d in enumerate(sorted_dates):
+            active = "active" if idx == 0 else ""
             html_content += f"""
-            <div class="race-container">
-                <div class="race-header">
-                    <span class="race-title">{res['title']}</span>
-                    <span class="race-meta">ID: {res['race_id']} | {weather} | {dist}m</span>
-                </div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Mark</th>
-                            <th>#</th>
-                            <th>Horse</th>
-                            <th>Jockey</th>
-                            <th>Odds</th>
-                            <th>Win%</th>
+            <li class="nav-item">
+                <a class="nav-link {active}" id="tab-{d}" data-toggle="tab" href="#content-{d}" role="tab">{d}</a>
+            </li>
             """
+        html_content += '</ul>'
+        
+        # Date Content
+        html_content += '<div class="tab-content" id="dateTabsContent">'
+        
+        for idx, d in enumerate(sorted_dates):
+            active = "show active" if idx == 0 else ""
+            html_content += f'<div class="tab-pane fade {active}" id="content-{d}" role="tabpanel">'
             
-            # Dynamic Score Headers
-            for p in power_values:
-                 html_content += f"<th>Score(P={p})</th>"
-                 
-            html_content += """
-                        </tr>
-                    </thead>
-                    <tbody>
-            """
+            # --- Level 2: Venue Tabs ---
+            venues = grouped_data[d]
+            sorted_venues = sorted(venues.keys())
             
-            # Rows (Top 10)
-            for i, (_, row) in enumerate(df.head(10).iterrows()):
-                symbol = ""
-                if i == 0: symbol = "◎"
-                elif i == 1: symbol = "○"
-                elif i == 2: symbol = "▲"
-                elif i == 3: symbol = "△"
-                
-                odds = row.get('odds', '---')
-                win_prob = row.get('win_prob', 0) * 100
-                
+            html_content += f'<ul class="nav nav-tabs venue-tabs" id="venueTabs-{d}" role="tablist" style="margin-top: 10px;">'
+            for v_idx, v_code in enumerate(sorted_venues):
+                v_active = "active" if v_idx == 0 else ""
+                v_name = venue_names.get(v_code, v_code)
                 html_content += f"""
-                        <tr>
-                            <td><span class="symbol">{symbol}</span></td>
-                            <td>{row.get('umaban', '')}</td>
-                            <td>{row.get('name', '')}</td>
-                            <td>{row.get('jockey', '')}</td>
-                            <td>{odds}</td>
-                            <td>{win_prob:.1f}%</td>
+                <li class="nav-item">
+                    <a class="nav-link {v_active}" id="tab-{d}-{v_code}" data-toggle="tab" href="#content-{d}-{v_code}" role="tab">{v_name}</a>
+                </li>
                 """
+            html_content += '</ul>'
+            
+            # Venue Content
+            html_content += f'<div class="tab-content" id="venueTabsContent-{d}">'
+            for v_idx, v_code in enumerate(sorted_venues):
+                v_active = "show active" if v_idx == 0 else ""
+                races = sorted(venues[v_code], key=lambda x: x['race_no'])
                 
-                for p in power_values:
-                    score = row.get(f'Score(P={p})', 0)
-                    style = "font-weight:bold" if p == sort_p else ""
-                    html_content += f'<td style="{style}">{score:.4f}</td>'
+                html_content += f'<div class="tab-pane fade {v_active}" id="content-{d}-{v_code}" role="tabpanel">'
+                
+                # --- Level 3: Race Tabs ---
+                html_content += f'<ul class="nav nav-tabs race-tabs" id="raceTabs-{d}-{v_code}" role="tablist" style="margin-top: 10px;">'
+                for r_idx, race in enumerate(races):
+                    r_active = "active" if r_idx == 0 else ""
+                    rid = race['id']
+                    html_content += f"""
+                    <li class="nav-item">
+                        <a class="nav-link {r_active}" id="tab-{rid}" data-toggle="tab" href="#content-{rid}" role="tab">{race['race_no']}R</a>
+                    </li>
+                    """
+                html_content += '</ul>'
+                
+                # Race Content
+                html_content += f'<div class="tab-content" id="raceTabsContent-{d}-{v_code}">'
+                
+                for r_idx, race in enumerate(races):
+                    r_active = "show active" if r_idx == 0 else ""
+                    rid = race['id']
+                    df = race['df']
+                    meta = race['meta']
                     
-                html_content += "</tr>"
+                    html_content += f"""
+                    <div class="tab-pane fade {r_active}" id="content-{rid}" role="tabpanel">
+                        <div class="card">
+                            <div class="card-header">
+                                <span class="race-title-text">{race['title']}</span>
+                                <span class="race-meta">{meta} | ID: {rid}</span>
+                            </div>
+                            <div class="card-body p-0">
+                                <table class="table table-hover table-sm mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Mark</th>
+                                            <th>#</th>
+                                            <th>Horse</th>
+                                            <th>Jockey</th>
+                                            <th>Odds</th>
+                                            <th>Win%</th>
+                                            <th>Score (P={default_p})</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                    """
+                    
+                    for i, (_, row) in enumerate(df.head(12).iterrows()): # Show top 12
+                        symbol = ""
+                        row_class = ""
+                        if i == 0: 
+                            symbol = "🥇" # Gold Medal
+                            row_class = "top-pick-row"
+                        elif i == 1: symbol = "🥈" # Silver
+                        elif i == 2: symbol = "🥉" # Bronze
+                        elif i == 3: symbol = "△"
+                        elif i == 4: symbol = "☆"
+                        
+                        odds = row.get('odds', '---')
+                        win_prob = row.get('win_prob', 0) * 100
+                        score = row.get(f'Score(P={default_p})', 0)
+                        
+                        html_content += f"""
+                                        <tr class="{row_class}">
+                                            <td><span class="symbol">{symbol}</span></td>
+                                            <td>{row.get('umaban', '')}</td>
+                                            <td>{row.get('name', '')}</td>
+                                            <td>{row.get('jockey', '')}</td>
+                                            <td>{odds}</td>
+                                            <td>{win_prob:.1f}%</td>
+                                            <td><strong>{score:.4f}</strong></td>
+                                        </tr>
+                        """
+                        
+                    html_content += """
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    """
                 
-            html_content += """
-                    </tbody>
-                </table>
-            </div>
-            """
+                html_content += '</div>' # End Race Content
+                html_content += '</div>' # End Venue Pane
+            
+            html_content += '</div>' # End Venue Tabs Content
+            html_content += '</div>' # End Date Pane
+            
+        html_content += '</div>' # End Date Tabs Content
 
-    html_content += "</body></html>"
+    html_content += """
+        </div>
+        <!-- Bootstrap JS and dependencies -->
+        <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+        <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    </body>
+    </html>
+    """
     
     with open(output_file, "w", encoding='utf-8') as f:
         f.write(html_content)

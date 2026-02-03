@@ -188,83 +188,88 @@ def resolve_path(path_str):
         return path_str
     return os.path.join(settings.RAW_DATA_DIR, path_str)
 
+def normalize_id(val):
+    s = str(val)
+    if s.endswith(".0"):
+        return s[:-2]
+    return s
+
 def scrape_missing_horses(input_path=None, output_path=None, target_db_path=None):
     """
-    Scans raw data for horses, checks against existing profile DB, 
-    and scrapes missing ones.
+    生データから馬IDをスキャンし、既存のプロファイルDBと照合して
+    欠損している馬のプロファイルをスクレイピングします。
     """
-    # Defaults
+    # デフォルト設定
     if not target_db_path:
         target_db_path = os.path.join(settings.RAW_DATA_DIR, "horse_profiles.csv")
     else:
         target_db_path = resolve_path(target_db_path)
     
-    # 1. Gather all unique horse IDs from results
+    # 1. 結果データからユニークな馬IDを収集
     all_horse_ids = set()
     
     files_to_scan = []
     if input_path:
-        # Resolve input path
+        # 入力パスの解決
         full_input_path = resolve_path(input_path)
         if os.path.exists(full_input_path):
             files_to_scan.append(full_input_path)
-            print(f"Scanning single file: {full_input_path}")
+            print(f"単一ファイルをスキャン中: {full_input_path}")
         else:
-            print(f"Error: Input file not found: {full_input_path}")
+            print(f"エラー: 入力ファイルが見つかりません: {full_input_path}")
             return
     else:
-        # Scan all
+        # 全ファイルをスキャン
         scan_files = [f for f in os.listdir(settings.RAW_DATA_DIR) if f.startswith('results_') and f.endswith('.csv')]
-        print("Scanning all result files for horses...")
+        print("全結果ファイルから馬IDをスキャン中...")
         for f in scan_files:
             files_to_scan.append(os.path.join(settings.RAW_DATA_DIR, f))
     
     for path in files_to_scan:
         try:
+            # horse_idを文字列として読み込むか、floatの可能性を考慮して変換
             df = pd.read_csv(path, usecols=['horse_id'])
-            all_horse_ids.update(df['horse_id'].astype(str))
+            # floatとして読み込まれた場合の対策 (例: 2016.0 -> 2016 -> '2016')に加え、文字列IDも考慮
+            ids = df['horse_id'].dropna().apply(normalize_id)
+            all_horse_ids.update(ids)
         except Exception as e:
-            print(f"Error reading {path}: {e}")
+            print(f"ファイル読み込みエラー {path}: {e}")
             pass
             
-    print(f"Total unique horses found in source: {len(all_horse_ids)}")
+    print(f"ソース内の全ユニーク馬ID数: {len(all_horse_ids)}")
     
-    # 2. Load existing profiles (Target DB)
+    # 2. 既存プロファイルの読み込み (ターゲットDB)
     existing_ids = set()
     if os.path.exists(target_db_path):
         try:
             df_prof = pd.read_csv(target_db_path)
-            # Ensure columns exist
+            # カラム存在確認
             if 'horse_id' in df_prof.columns:
-                existing_ids = set(df_prof['horse_id'].astype(str))
-        except:
-            print("Error reading existing profile DB.")
+                # 既存DBも念のため同様に正規化
+                ids = df_prof['horse_id'].dropna().apply(normalize_id)
+                existing_ids = set(ids)
+        except Exception as e:
+            print(f"既存プロファイルDB読み込みエラー: {e}")
             
-    print(f"Existing profiles in target: {len(existing_ids)}")
+    print(f"ターゲット内の既存プロファイル数: {len(existing_ids)}")
     
-    # 3. Identify missing
+    # 3. 欠損IDの特定
     missing_ids = sorted(list(all_horse_ids - existing_ids))
-    print(f"Missing profiles to scrape: {len(missing_ids)}")
+    print(f"スクレイピング対象の欠損プロファイル数: {len(missing_ids)}")
     
     if not missing_ids:
-        print("No new horses to scrape.")
+        print("新規スクレイピング対象の馬はありません。")
         return
 
-    # Determine output path
+    # 出力パスの決定
     if not output_path:
-        if input_path:
-             # If input was "results_2020.csv", default output to "scraped_results_2020.csv" or similar?
-             # Or just append to target if no output specified?
-             # For safety with CLI, let's require output or default to appending to target.
-             # Actually current logic appends to 'profile_path' which was target.
-             output_path = target_db_path
-        else:
-             output_path = target_db_path
+        # 出力が指定されていない場合はターゲットDBに追加する形をとる
+        output_path = target_db_path
     
     output_path = resolve_path(output_path)
-    print(f"Saving scraped data to: {output_path}")
+    print(f"スクレイピングデータを保存: {output_path}")
 
-    # 4. Scrape
+    # 4. スクレイピング実行
     new_data = []
     BUFFER_SIZE = 50
     
@@ -273,65 +278,64 @@ def scrape_missing_horses(input_path=None, output_path=None, target_db_path=None
         if data:
             new_data.append(data)
             
-        # Incremental Save
+        # 逐次保存
         if len(new_data) >= BUFFER_SIZE:
             _append_profiles(new_data, output_path)
             new_data = []
             
-    # Final Save
+    # 最終保存
     if new_data:
         _append_profiles(new_data, output_path)
 
 def merge_profiles(source_path, target_path):
-    """Merges source CSV into target CSV with deduplication."""
+    """ソースCSVをターゲットCSVにマージし、重複を排除します。"""
     source_path = resolve_path(source_path)
     target_path = resolve_path(target_path)
     
     if not os.path.exists(source_path):
-        print(f"Source file not found: {source_path}")
+        print(f"ソースファイルが見つかりません: {source_path}")
         return
     
-    print(f"Merging {source_path} into {target_path}")
+    print(f"マージ中: {source_path} -> {target_path}")
     
     try:
+        # IDを明示的に文字列として扱うのではなく、正規化してから処理する
         df_source = pd.read_csv(source_path)
-        
+        # ID正規化
+        if 'horse_id' in df_source.columns:
+             df_source['horse_id'] = df_source['horse_id'].dropna().apply(normalize_id)
+
         if os.path.exists(target_path):
             df_target = pd.read_csv(target_path)
-            # Combine
+            if 'horse_id' in df_target.columns:
+                df_target['horse_id'] = df_target['horse_id'].dropna().apply(normalize_id)
+            
+            # 結合
             df_combined = pd.concat([df_target, df_source])
         else:
             df_combined = df_source
             
-        # Deduplicate
+        # 重複排除
         if 'horse_id' in df_combined.columns:
             before = len(df_combined)
-            # Keep last (newest) or first? Usually existing data is fine, but maybe we want to keep one. 
-            # drop_duplicates keeps 'first' by default.
-            # If we trust current DB, we might want to keep that. 
-            # But usually we just want *a* record.
-            # drop_duplicates calculates based on the order. Since we concat [target, source], 
-            # keep='last' will keep the source (new) version if duplicate exists.
+            # 後勝ち (ソース側のデータを優先)
             df_combined = df_combined.drop_duplicates(subset=['horse_id'], keep='last')
             after = len(df_combined)
-            print(f"Merged. Rows: {before} -> {after} (Dropped {before - after} duplicates)")
+            print(f"マージ完了。 行数: {before} -> {after} ({before - after} 件の重複を削除)")
         
         df_combined.to_csv(target_path, index=False, encoding='utf-8')
-        print("Merge complete.")
+        print("マージ処理完了。")
         
     except Exception as e:
-        print(f"Error during merge: {e}")
+        print(f"マージ中にエラーが発生しました: {e}")
         sys.exit(1)
 
 def _append_profiles(data, path):
     if not data: return
     df = pd.DataFrame(data)
     exists = os.path.exists(path)
-    # Check if we are appending to a file that might need headers
-    # If file exists, mode='a', header=False
-    # If file doesn't exist, mode='w' (implicitly), header=True
     
-    # Ensuring directory exists
+    # ディレクトリ作成確認
     os.makedirs(os.path.dirname(path), exist_ok=True)
     
     df.to_csv(path, mode='a', header=not exists, index=False, encoding='utf-8')
@@ -341,7 +345,7 @@ if __name__ == "__main__":
     
     if args.merge_source:
         if not args.merge_target:
-             args.merge_target = "horse_profiles.csv" # Default relative to raw dir
+             args.merge_target = "horse_profiles.csv" # デフォルト
         merge_profiles(args.merge_source, args.merge_target)
     else:
         scrape_missing_horses(args.input, args.output, args.target)

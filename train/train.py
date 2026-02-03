@@ -33,7 +33,9 @@ def train_model(start_year, end_year):
         'jockey_win_rate', 'trainer_win_rate', 'horse_id', 'jockey_id', 'trainer_id',
         'waku', 'umaban', 'course_type', 'distance', 'weather', 'condition',
         'lag1_rank', 'lag1_speed_index', 'interval', 'weight_diff',
-        'sire_id', 'damsire_id', 'running_style'
+        'sire_id', 'damsire_id', 'running_style',
+        'sire_win_rate', 'damsire_win_rate', # New
+        'course_type_win_rate', 'dist_cat_win_rate' # New Aptitude Features
     ]
     target = 'rank_class'
     

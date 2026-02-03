@@ -1,952 +1,1440 @@
 
     <!DOCTYPE html>
-    <html>
+    <html lang="ja">
     <head>
-        <title>Keiba Prediction</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        <title>Keiba Prediction Report</title>
+        <!-- Bootstrap 4 CSS -->
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
         <style>
-            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background-color: #f9f9f9; }
-            h1 { color: #333; text-align: center; }
-            .race-container { background: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; padding: 15px; }
-            .race-header { border-bottom: 2px solid #007bff; padding-bottom: 10px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
-            .race-title { font-size: 1.2em; font-weight: bold; color: #007bff; }
-            .race-meta { color: #666; font-size: 0.9em; }
-            table { border-collapse: collapse; width: 100%; }
-            th, td { padding: 10px; text-align: left; border-bottom: 1px solid #eee; }
-            th { background-color: #f8f9fa; color: #555; }
-            tr:first-child td { font-weight: bold; background-color: #fff3cd; } /* Top Pick Highlight */
-            .symbol { font-weight: bold; width: 30px; display: inline-block; text-align: center; }
-            .score-bar { height: 4px; background-color: #28a745; }
+            body { padding: 20px; background-color: #f4f7f6; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+            .card { margin-top: 20px; border: none; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius: 8px; overflow: hidden; }
+            
+            /* Card Header: Black background, White text */
+            .card-header { 
+                background-color: #212529; 
+                color: white; 
+                border-bottom: none; 
+                padding: 10px 15px;
+            }
+            .race-title-text { font-size: 1.1em; font-weight: bold; }
+            .race-meta { font-size: 0.9em; color: #ced4da; float: right; }
+            
+            /* Tabs */
+            .nav-tabs { border-bottom: 2px solid #dee2e6; }
+            .nav-link { border: none; color: #495057; }
+            
+            /* Level 1: Date (Standard Tabs) */
+            #dateTabs .nav-link.active { 
+                border-bottom: 3px solid #007bff; 
+                color: #007bff; 
+                font-weight: bold; 
+                background: transparent;
+            }
+            
+            /* Level 2: Venue (Blue Pills/Tabs) */
+            .venue-tabs .nav-link {
+                background-color: transparent;
+                margin-right: 5px;
+                border-radius: 4px;
+                padding: 8px 15px;
+            }
+            .venue-tabs .nav-link.active { 
+                background-color: #007bff; 
+                color: white !important; 
+            }
+            
+            /* Level 3: Race (Light Pills) */
+            .race-tabs .nav-link {
+                padding: 5px 15px;
+                margin-right: 5px;
+                border: 1px solid transparent;
+            }
+            .race-tabs .nav-link.active { 
+                background-color: white; 
+                color: #212529 !important; 
+                font-weight: bold; 
+                border: 1px solid #dee2e6;
+                border-bottom: none;
+                box-shadow: 0 -2px 5px rgba(0,0,0,0.05);
+            }
+            
+            .table th { background-color: #f8f9fa; border-top: none; font-weight: 600; }
+            .symbol { font-size: 1.2em; }
+            
+            /* Top Pick: Yellow Highlight */
+            .top-pick-row { background-color: #fff3cd !important; }
+            
+            h1 { margin-bottom: 10px; text-align: center; color: #333; font-weight: 700; }
+            .header-icon { font-size: 1.5em; margin-right: 10px; }
         </style>
     </head>
     <body>
-        <h1>Weekend Predictions</h1>
-        <p style="text-align:center;">Generated: 2026-01-27 00:19</p>
-        <p style="text-align:center;">Powers: [3, 4]</p>
+        <div class="container-fluid" style="max-width: 800px; margin: 0 auto;">
+            <h1><span class="header-icon">🏇</span>Keiba AI Predictions</h1>
+            <p class="text-center text-muted" style="margin-bottom: 30px;">Generated at: 2026-02-03 23:41</p>
+    <ul class="nav nav-tabs" id="dateTabs" role="tablist">
+            <li class="nav-item">
+                <a class="nav-link active" id="tab-20260207" data-toggle="tab" href="#content-20260207" role="tab">20260207</a>
+            </li>
+            </ul><div class="tab-content" id="dateTabsContent"><div class="tab-pane fade show active" id="content-20260207" role="tabpanel"><ul class="nav nav-tabs venue-tabs" id="venueTabs-20260207" role="tablist" style="margin-top: 10px;">
+                <li class="nav-item">
+                    <a class="nav-link active" id="tab-20260207-05" data-toggle="tab" href="#content-20260207-05" role="tab">Tokyo</a>
+                </li>
+                
+                <li class="nav-item">
+                    <a class="nav-link " id="tab-20260207-08" data-toggle="tab" href="#content-20260207-08" role="tab">Kyoto</a>
+                </li>
+                
+                <li class="nav-item">
+                    <a class="nav-link " id="tab-20260207-10" data-toggle="tab" href="#content-20260207-10" role="tab">Kokura</a>
+                </li>
+                </ul><div class="tab-content" id="venueTabsContent-20260207"><div class="tab-pane fade show active" id="content-20260207-05" role="tabpanel"><ul class="nav nav-tabs race-tabs" id="raceTabs-20260207-05" role="tablist" style="margin-top: 10px;">
+                    <li class="nav-item">
+                        <a class="nav-link active" id="tab-202605010309" data-toggle="tab" href="#content-202605010309" role="tab">9R</a>
+                    </li>
+                    
+                    <li class="nav-item">
+                        <a class="nav-link " id="tab-202605010310" data-toggle="tab" href="#content-202605010310" role="tab">10R</a>
+                    </li>
+                    
+                    <li class="nav-item">
+                        <a class="nav-link " id="tab-202605010311" data-toggle="tab" href="#content-202605010311" role="tab">11R</a>
+                    </li>
+                    </ul><div class="tab-content" id="raceTabsContent-20260207-05">
+                    <div class="tab-pane fade show active" id="content-202605010309" role="tabpanel">
+                        <div class="card">
+                            <div class="card-header">
+                                <span class="race-title-text">05 9R 9R春菜賞14:30芝1400m19頭</span>
+                                <span class="race-meta">2 1400m 0 | ID: 202605010309</span>
+                            </div>
+                            <div class="card-body p-0">
+                                <table class="table table-hover table-sm mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Mark</th>
+                                            <th>#</th>
+                                            <th>Horse</th>
+                                            <th>Jockey</th>
+                                            <th>Odds</th>
+                                            <th>Win%</th>
+                                            <th>Score (P=4)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                    
+                                        <tr class="top-pick-row">
+                                            <td><span class="symbol">🥇</span></td>
+                                            <td>0.0</td>
+                                            <td>エピッククイーン</td>
+                                            <td>川田</td>
+                                            <td>---.-</td>
+                                            <td>25.3%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol">🥈</span></td>
+                                            <td>0.0</td>
+                                            <td>アイスメルティング</td>
+                                            <td>戸崎圭</td>
+                                            <td>---.-</td>
+                                            <td>14.5%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol">🥉</span></td>
+                                            <td>0.0</td>
+                                            <td>メイショウハッケイ</td>
+                                            <td>武豊</td>
+                                            <td>---.-</td>
+                                            <td>13.9%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol">△</span></td>
+                                            <td>0.0</td>
+                                            <td>ロンドンオービタル</td>
+                                            <td>横山武</td>
+                                            <td>---.-</td>
+                                            <td>13.4%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol">☆</span></td>
+                                            <td>0.0</td>
+                                            <td>ラエトゥス</td>
+                                            <td>横山和</td>
+                                            <td>---.-</td>
+                                            <td>13.2%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>ルージュブリッツ</td>
+                                            <td>横山和</td>
+                                            <td>---.-</td>
+                                            <td>12.2%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>トワニ</td>
+                                            <td>菅原明</td>
+                                            <td>---.-</td>
+                                            <td>11.1%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>フロムレイブン</td>
+                                            <td>横山和</td>
+                                            <td>---.-</td>
+                                            <td>10.1%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>ラヴノー</td>
+                                            <td>津村</td>
+                                            <td>---.-</td>
+                                            <td>9.0%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>トラスコンガーデン</td>
+                                            <td>吉田豊</td>
+                                            <td>---.-</td>
+                                            <td>5.2%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>トリスティ</td>
+                                            <td>大野</td>
+                                            <td>---.-</td>
+                                            <td>5.0%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>エゴンウレア</td>
+                                            <td>大野</td>
+                                            <td>---.-</td>
+                                            <td>3.9%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="tab-pane fade " id="content-202605010310" role="tabpanel">
+                        <div class="card">
+                            <div class="card-header">
+                                <span class="race-title-text">05 10R 10Rテレビ山梨杯15:05芝1400m19頭</span>
+                                <span class="race-meta">2 1400m 0 | ID: 202605010310</span>
+                            </div>
+                            <div class="card-body p-0">
+                                <table class="table table-hover table-sm mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Mark</th>
+                                            <th>#</th>
+                                            <th>Horse</th>
+                                            <th>Jockey</th>
+                                            <th>Odds</th>
+                                            <th>Win%</th>
+                                            <th>Score (P=4)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                    
+                                        <tr class="top-pick-row">
+                                            <td><span class="symbol">🥇</span></td>
+                                            <td>0.0</td>
+                                            <td>コンテネレッツア</td>
+                                            <td>戸崎圭</td>
+                                            <td>---.-</td>
+                                            <td>16.7%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol">🥈</span></td>
+                                            <td>0.0</td>
+                                            <td>フミサウンド</td>
+                                            <td>横山武</td>
+                                            <td>---.-</td>
+                                            <td>16.6%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol">🥉</span></td>
+                                            <td>0.0</td>
+                                            <td>ジーベック</td>
+                                            <td>坂井</td>
+                                            <td>---.-</td>
+                                            <td>15.1%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol">△</span></td>
+                                            <td>0.0</td>
+                                            <td>ルージュスエルテ</td>
+                                            <td>鮫島駿</td>
+                                            <td>---.-</td>
+                                            <td>12.6%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol">☆</span></td>
+                                            <td>0.0</td>
+                                            <td>ボンヌソワレ</td>
+                                            <td>津村</td>
+                                            <td>---.-</td>
+                                            <td>9.0%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>サダメ</td>
+                                            <td>横山典</td>
+                                            <td>---.-</td>
+                                            <td>7.8%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>ブルーベリーフィズ</td>
+                                            <td>北村宏</td>
+                                            <td>---.-</td>
+                                            <td>7.8%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>ワタシマツワ</td>
+                                            <td>長岡</td>
+                                            <td>---.-</td>
+                                            <td>7.4%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>インフローレ</td>
+                                            <td>今村</td>
+                                            <td>---.-</td>
+                                            <td>7.3%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>イブニングタイド</td>
+                                            <td>荻野極</td>
+                                            <td>---.-</td>
+                                            <td>7.2%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>ミクストベリーズ</td>
+                                            <td>丹内</td>
+                                            <td>---.-</td>
+                                            <td>6.9%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>リリーブライト</td>
+                                            <td>黛</td>
+                                            <td>---.-</td>
+                                            <td>5.4%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="tab-pane fade " id="content-202605010311" role="tabpanel">
+                        <div class="card">
+                            <div class="card-header">
+                                <span class="race-title-text">05 11R 11R早春S15:45芝2400m15頭</span>
+                                <span class="race-meta">2 2400m 0 | ID: 202605010311</span>
+                            </div>
+                            <div class="card-body p-0">
+                                <table class="table table-hover table-sm mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Mark</th>
+                                            <th>#</th>
+                                            <th>Horse</th>
+                                            <th>Jockey</th>
+                                            <th>Odds</th>
+                                            <th>Win%</th>
+                                            <th>Score (P=4)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                    
+                                        <tr class="top-pick-row">
+                                            <td><span class="symbol">🥇</span></td>
+                                            <td>0.0</td>
+                                            <td>ファイアンクランツ</td>
+                                            <td>モレイラ</td>
+                                            <td>---.-</td>
+                                            <td>24.2%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol">🥈</span></td>
+                                            <td>0.0</td>
+                                            <td>ハギノアルデバラン</td>
+                                            <td>川田</td>
+                                            <td>---.-</td>
+                                            <td>22.2%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol">🥉</span></td>
+                                            <td>0.0</td>
+                                            <td>ベンサレム</td>
+                                            <td>ルメール</td>
+                                            <td>---.-</td>
+                                            <td>22.1%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol">△</span></td>
+                                            <td>0.0</td>
+                                            <td>トリプルコーク</td>
+                                            <td>ルメール</td>
+                                            <td>---.-</td>
+                                            <td>21.9%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol">☆</span></td>
+                                            <td>0.0</td>
+                                            <td>ダノンホイットニー</td>
+                                            <td>ルメール</td>
+                                            <td>---.-</td>
+                                            <td>21.5%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>オールセインツ</td>
+                                            <td>戸崎圭</td>
+                                            <td>---.-</td>
+                                            <td>19.8%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>アマキヒ</td>
+                                            <td>戸崎圭</td>
+                                            <td>---.-</td>
+                                            <td>19.4%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>パンジャ</td>
+                                            <td>戸崎圭</td>
+                                            <td>---.-</td>
+                                            <td>17.7%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>ロードオールライト</td>
+                                            <td>菅原明</td>
+                                            <td>---.-</td>
+                                            <td>16.1%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>ディヴァインスター</td>
+                                            <td>菅原明</td>
+                                            <td>---.-</td>
+                                            <td>15.7%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>レッドテリオス</td>
+                                            <td>マーカンド</td>
+                                            <td>---.-</td>
+                                            <td>14.3%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>エレクトリックブギ</td>
+                                            <td>佐々木</td>
+                                            <td>---.-</td>
+                                            <td>9.1%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    </div></div><div class="tab-pane fade " id="content-20260207-08" role="tabpanel"><ul class="nav nav-tabs race-tabs" id="raceTabs-20260207-08" role="tablist" style="margin-top: 10px;">
+                    <li class="nav-item">
+                        <a class="nav-link active" id="tab-202608020309" data-toggle="tab" href="#content-202608020309" role="tab">9R</a>
+                    </li>
+                    
+                    <li class="nav-item">
+                        <a class="nav-link " id="tab-202608020310" data-toggle="tab" href="#content-202608020310" role="tab">10R</a>
+                    </li>
+                    
+                    <li class="nav-item">
+                        <a class="nav-link " id="tab-202608020311" data-toggle="tab" href="#content-202608020311" role="tab">11R</a>
+                    </li>
+                    </ul><div class="tab-content" id="raceTabsContent-20260207-08">
+                    <div class="tab-pane fade show active" id="content-202608020309" role="tabpanel">
+                        <div class="card">
+                            <div class="card-header">
+                                <span class="race-title-text">08 9R 9R橿原S14:20ダ1200m19頭</span>
+                                <span class="race-meta">0 1200m 0 | ID: 202608020309</span>
+                            </div>
+                            <div class="card-body p-0">
+                                <table class="table table-hover table-sm mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Mark</th>
+                                            <th>#</th>
+                                            <th>Horse</th>
+                                            <th>Jockey</th>
+                                            <th>Odds</th>
+                                            <th>Win%</th>
+                                            <th>Score (P=4)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                    
+                                        <tr class="top-pick-row">
+                                            <td><span class="symbol">🥇</span></td>
+                                            <td>0.0</td>
+                                            <td>ゲッティヴィラ</td>
+                                            <td>川田</td>
+                                            <td>---.-</td>
+                                            <td>21.9%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol">🥈</span></td>
+                                            <td>0.0</td>
+                                            <td>パラサイコロジー</td>
+                                            <td>レーン</td>
+                                            <td>---.-</td>
+                                            <td>15.8%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol">🥉</span></td>
+                                            <td>0.0</td>
+                                            <td>イリフィ</td>
+                                            <td>西村淳</td>
+                                            <td>---.-</td>
+                                            <td>11.6%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol">△</span></td>
+                                            <td>0.0</td>
+                                            <td>ライジン</td>
+                                            <td>池添</td>
+                                            <td>---.-</td>
+                                            <td>11.4%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol">☆</span></td>
+                                            <td>0.0</td>
+                                            <td>アイアムユウシュン</td>
+                                            <td>戸崎圭</td>
+                                            <td>---.-</td>
+                                            <td>11.2%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>タマモダイジョッキ</td>
+                                            <td>横山和</td>
+                                            <td>---.-</td>
+                                            <td>8.5%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>ハンベルジャイト</td>
+                                            <td>永島</td>
+                                            <td>---.-</td>
+                                            <td>7.4%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>ネグレスコ</td>
+                                            <td>石橋脩</td>
+                                            <td>---.-</td>
+                                            <td>6.7%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>ナスノカンゲツ</td>
+                                            <td>田口</td>
+                                            <td>---.-</td>
+                                            <td>6.2%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>エンヤラヴフェイス</td>
+                                            <td>団野</td>
+                                            <td>---.-</td>
+                                            <td>5.8%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>コパノハンプトン</td>
+                                            <td>岩田康</td>
+                                            <td>---.-</td>
+                                            <td>5.8%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>キタノソワレ</td>
+                                            <td>佐々木</td>
+                                            <td>---.-</td>
+                                            <td>5.6%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="tab-pane fade " id="content-202608020310" role="tabpanel">
+                        <div class="card">
+                            <div class="card-header">
+                                <span class="race-title-text">08 10R 10RエルフィンS14:55芝1600m10頭</span>
+                                <span class="race-meta">2 1600m 0 | ID: 202608020310</span>
+                            </div>
+                            <div class="card-body p-0">
+                                <table class="table table-hover table-sm mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Mark</th>
+                                            <th>#</th>
+                                            <th>Horse</th>
+                                            <th>Jockey</th>
+                                            <th>Odds</th>
+                                            <th>Win%</th>
+                                            <th>Score (P=4)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                    
+                                        <tr class="top-pick-row">
+                                            <td><span class="symbol">🥇</span></td>
+                                            <td>0.0</td>
+                                            <td>アドマイヤシュラ</td>
+                                            <td>Ｃデムーロ</td>
+                                            <td>---.-</td>
+                                            <td>19.4%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol">🥈</span></td>
+                                            <td>0.0</td>
+                                            <td>デアヴェローチェ</td>
+                                            <td>岩田望</td>
+                                            <td>---.-</td>
+                                            <td>17.4%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol">🥉</span></td>
+                                            <td>0.0</td>
+                                            <td>フェルミアーク</td>
+                                            <td>ルメール</td>
+                                            <td>---.-</td>
+                                            <td>15.2%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol">△</span></td>
+                                            <td>0.0</td>
+                                            <td>ラエトゥス</td>
+                                            <td>横山和</td>
+                                            <td>---.-</td>
+                                            <td>13.2%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol">☆</span></td>
+                                            <td>0.0</td>
+                                            <td>トラスコンガーデン</td>
+                                            <td>吉田豊</td>
+                                            <td>---.-</td>
+                                            <td>5.2%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>エレガントファラオ</td>
+                                            <td>斎藤</td>
+                                            <td>---.-</td>
+                                            <td>5.1%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>スピナーリート</td>
+                                            <td>ジェルー</td>
+                                            <td>---.-</td>
+                                            <td>3.4%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>アイニードユー</td>
+                                            <td>ハマーハン</td>
+                                            <td>---.-</td>
+                                            <td>3.3%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>ベルサンローラン</td>
+                                            <td>吉村</td>
+                                            <td>---.-</td>
+                                            <td>3.3%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>スウィートハピネス</td>
+                                            <td>高杉</td>
+                                            <td>---.-</td>
+                                            <td>2.5%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="tab-pane fade " id="content-202608020311" role="tabpanel">
+                        <div class="card">
+                            <div class="card-header">
+                                <span class="race-title-text">08 11R 11Rアルデバラン15:30ダ1900m23頭</span>
+                                <span class="race-meta">0 1900m 0 | ID: 202608020311</span>
+                            </div>
+                            <div class="card-body p-0">
+                                <table class="table table-hover table-sm mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Mark</th>
+                                            <th>#</th>
+                                            <th>Horse</th>
+                                            <th>Jockey</th>
+                                            <th>Odds</th>
+                                            <th>Win%</th>
+                                            <th>Score (P=4)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                    
+                                        <tr class="top-pick-row">
+                                            <td><span class="symbol">🥇</span></td>
+                                            <td>0.0</td>
+                                            <td>トリポリタニア</td>
+                                            <td>Ｃデムーロ</td>
+                                            <td>---.-</td>
+                                            <td>22.9%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol">🥈</span></td>
+                                            <td>0.0</td>
+                                            <td>ジンセイ</td>
+                                            <td>川田</td>
+                                            <td>---.-</td>
+                                            <td>19.0%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol">🥉</span></td>
+                                            <td>0.0</td>
+                                            <td>キョウキランブ</td>
+                                            <td>戸崎圭</td>
+                                            <td>---.-</td>
+                                            <td>15.8%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol">△</span></td>
+                                            <td>0.0</td>
+                                            <td>ミッキークレスト</td>
+                                            <td>坂井</td>
+                                            <td>---.-</td>
+                                            <td>15.1%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol">☆</span></td>
+                                            <td>0.0</td>
+                                            <td>ディープリボーン</td>
+                                            <td>岩田望</td>
+                                            <td>---.-</td>
+                                            <td>14.7%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>ゼットリアン</td>
+                                            <td>松山</td>
+                                            <td>---.-</td>
+                                            <td>11.7%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>シュバルツクーゲル</td>
+                                            <td>西村淳</td>
+                                            <td>---.-</td>
+                                            <td>11.6%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>タイトニット</td>
+                                            <td>西村淳</td>
+                                            <td>---.-</td>
+                                            <td>10.8%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>ジューンアヲニヨシ</td>
+                                            <td>西村淳</td>
+                                            <td>---.-</td>
+                                            <td>10.8%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>ピカピカサンダー</td>
+                                            <td>三浦</td>
+                                            <td>---.-</td>
+                                            <td>9.4%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>アムールドパリ</td>
+                                            <td>津村</td>
+                                            <td>---.-</td>
+                                            <td>8.9%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>リアレスト</td>
+                                            <td>岩田康</td>
+                                            <td>---.-</td>
+                                            <td>8.0%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    </div></div><div class="tab-pane fade " id="content-20260207-10" role="tabpanel"><ul class="nav nav-tabs race-tabs" id="raceTabs-20260207-10" role="tablist" style="margin-top: 10px;">
+                    <li class="nav-item">
+                        <a class="nav-link active" id="tab-202610010509" data-toggle="tab" href="#content-202610010509" role="tab">9R</a>
+                    </li>
+                    
+                    <li class="nav-item">
+                        <a class="nav-link " id="tab-202610010510" data-toggle="tab" href="#content-202610010510" role="tab">10R</a>
+                    </li>
+                    
+                    <li class="nav-item">
+                        <a class="nav-link " id="tab-202610010511" data-toggle="tab" href="#content-202610010511" role="tab">11R</a>
+                    </li>
+                    </ul><div class="tab-content" id="raceTabsContent-20260207-10">
+                    <div class="tab-pane fade show active" id="content-202610010509" role="tabpanel">
+                        <div class="card">
+                            <div class="card-header">
+                                <span class="race-title-text">10 9R 9R戸畑特別14:10芝2000m32頭</span>
+                                <span class="race-meta">2 2000m 0 | ID: 202610010509</span>
+                            </div>
+                            <div class="card-body p-0">
+                                <table class="table table-hover table-sm mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Mark</th>
+                                            <th>#</th>
+                                            <th>Horse</th>
+                                            <th>Jockey</th>
+                                            <th>Odds</th>
+                                            <th>Win%</th>
+                                            <th>Score (P=4)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                    
+                                        <tr class="top-pick-row">
+                                            <td><span class="symbol">🥇</span></td>
+                                            <td>0.0</td>
+                                            <td>サイレントグルーヴ</td>
+                                            <td>武豊</td>
+                                            <td>---.-</td>
+                                            <td>16.0%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol">🥈</span></td>
+                                            <td>0.0</td>
+                                            <td>ハギノコラソン</td>
+                                            <td>岩田望</td>
+                                            <td>---.-</td>
+                                            <td>16.0%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol">🥉</span></td>
+                                            <td>0.0</td>
+                                            <td>ドーギッド</td>
+                                            <td>坂井</td>
+                                            <td>---.-</td>
+                                            <td>15.9%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol">△</span></td>
+                                            <td>0.0</td>
+                                            <td>サンライズバブル</td>
+                                            <td>池添</td>
+                                            <td>---.-</td>
+                                            <td>10.2%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol">☆</span></td>
+                                            <td>0.0</td>
+                                            <td>スピアッジャローザ</td>
+                                            <td>岩田望</td>
+                                            <td>---.-</td>
+                                            <td>10.1%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>ホウオウペトリュス</td>
+                                            <td>富田</td>
+                                            <td>---.-</td>
+                                            <td>9.5%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>アスクデッドヒート</td>
+                                            <td>古川奈</td>
+                                            <td>---.-</td>
+                                            <td>9.1%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>マイネルモメンタム</td>
+                                            <td>丹内</td>
+                                            <td>---.-</td>
+                                            <td>7.5%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>ヴォラヴィア</td>
+                                            <td>永島</td>
+                                            <td>---.-</td>
+                                            <td>7.5%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>オーシンエス</td>
+                                            <td>松若</td>
+                                            <td>---.-</td>
+                                            <td>6.8%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>イゾレエオリア</td>
+                                            <td>横山琉</td>
+                                            <td>---.-</td>
+                                            <td>6.0%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>サミダレナイツ</td>
+                                            <td>岩田康</td>
+                                            <td>---.-</td>
+                                            <td>5.8%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="tab-pane fade " id="content-202610010510" role="tabpanel">
+                        <div class="card">
+                            <div class="card-header">
+                                <span class="race-title-text">10 10R 10RRKB賞14:45芝1800m21頭</span>
+                                <span class="race-meta">2 1800m 0 | ID: 202610010510</span>
+                            </div>
+                            <div class="card-body p-0">
+                                <table class="table table-hover table-sm mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Mark</th>
+                                            <th>#</th>
+                                            <th>Horse</th>
+                                            <th>Jockey</th>
+                                            <th>Odds</th>
+                                            <th>Win%</th>
+                                            <th>Score (P=4)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                    
+                                        <tr class="top-pick-row">
+                                            <td><span class="symbol">🥇</span></td>
+                                            <td>0.0</td>
+                                            <td>ウインアクトゥール</td>
+                                            <td>レーン</td>
+                                            <td>---.-</td>
+                                            <td>16.8%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol">🥈</span></td>
+                                            <td>0.0</td>
+                                            <td>ツーエムクロノス</td>
+                                            <td>松山</td>
+                                            <td>---.-</td>
+                                            <td>13.5%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol">🥉</span></td>
+                                            <td>0.0</td>
+                                            <td>ヤマニンループ</td>
+                                            <td>横山典</td>
+                                            <td>---.-</td>
+                                            <td>12.8%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol">△</span></td>
+                                            <td>0.0</td>
+                                            <td>ヴィスマール</td>
+                                            <td>西村淳</td>
+                                            <td>---.-</td>
+                                            <td>11.7%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol">☆</span></td>
+                                            <td>0.0</td>
+                                            <td>ヤマニンガラッシア</td>
+                                            <td>菅原明</td>
+                                            <td>---.-</td>
+                                            <td>11.5%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>フローラルセント</td>
+                                            <td>西村淳</td>
+                                            <td>---.-</td>
+                                            <td>11.0%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>ルクスジニア</td>
+                                            <td>池添</td>
+                                            <td>---.-</td>
+                                            <td>9.4%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>バルティカ</td>
+                                            <td>北村友</td>
+                                            <td>---.-</td>
+                                            <td>8.9%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>ウィルサヴァイブ</td>
+                                            <td>団野</td>
+                                            <td>---.-</td>
+                                            <td>8.9%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>フナデ</td>
+                                            <td>丹内</td>
+                                            <td>---.-</td>
+                                            <td>8.8%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>オオナミコナミ</td>
+                                            <td>佐々木</td>
+                                            <td>---.-</td>
+                                            <td>8.4%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>ヤコブセン</td>
+                                            <td>斎藤</td>
+                                            <td>---.-</td>
+                                            <td>8.1%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="tab-pane fade " id="content-202610010511" role="tabpanel">
+                        <div class="card">
+                            <div class="card-header">
+                                <span class="race-title-text">10 11R 11R豊前S15:20ダ1700m16頭</span>
+                                <span class="race-meta">0 1700m 0 | ID: 202610010511</span>
+                            </div>
+                            <div class="card-body p-0">
+                                <table class="table table-hover table-sm mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Mark</th>
+                                            <th>#</th>
+                                            <th>Horse</th>
+                                            <th>Jockey</th>
+                                            <th>Odds</th>
+                                            <th>Win%</th>
+                                            <th>Score (P=4)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                    
+                                        <tr class="top-pick-row">
+                                            <td><span class="symbol">🥇</span></td>
+                                            <td>0.0</td>
+                                            <td>ゴッドブルービー</td>
+                                            <td>鮫島駿</td>
+                                            <td>---.-</td>
+                                            <td>9.5%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol">🥈</span></td>
+                                            <td>0.0</td>
+                                            <td>メイショウシナノ</td>
+                                            <td>岩田康</td>
+                                            <td>---.-</td>
+                                            <td>7.6%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol">🥉</span></td>
+                                            <td>0.0</td>
+                                            <td>アイウィル</td>
+                                            <td>丹内</td>
+                                            <td>---.-</td>
+                                            <td>7.6%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol">△</span></td>
+                                            <td>0.0</td>
+                                            <td>プルートマスター</td>
+                                            <td>松若</td>
+                                            <td>---.-</td>
+                                            <td>7.5%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol">☆</span></td>
+                                            <td>0.0</td>
+                                            <td>ノーブルスカイ</td>
+                                            <td>松若</td>
+                                            <td>---.-</td>
+                                            <td>7.2%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>カペルブリュッケ</td>
+                                            <td>斎藤</td>
+                                            <td>---.-</td>
+                                            <td>7.1%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>ホウオウスーペリア</td>
+                                            <td>荻野極</td>
+                                            <td>---.-</td>
+                                            <td>7.1%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>クロースコンバット</td>
+                                            <td>丹内</td>
+                                            <td>---.-</td>
+                                            <td>6.4%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>サンセットブライト</td>
+                                            <td>横山琉</td>
+                                            <td>---.-</td>
+                                            <td>5.4%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>メイショウミカワ</td>
+                                            <td>太宰</td>
+                                            <td>---.-</td>
+                                            <td>5.3%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>レシプロシティ</td>
+                                            <td>斎藤</td>
+                                            <td>---.-</td>
+                                            <td>4.6%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                        <tr class="">
+                                            <td><span class="symbol"></span></td>
+                                            <td>0.0</td>
+                                            <td>ワイドアラジン</td>
+                                            <td>小沢</td>
+                                            <td>---.-</td>
+                                            <td>3.8%</td>
+                                            <td><strong>0.0000</strong></td>
+                                        </tr>
+                        
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    </div></div></div></div></div>
+        </div>
+        <!-- Bootstrap JS and dependencies -->
+        <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+        <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    </body>
+    </html>
     
-            <div class="race-container">
-                <div class="race-header">
-                    <span class="race-title">05 9R 9R白嶺S14:30ダ1600m22頭</span>
-                    <span class="race-meta">ID: 202605010109 | 0 | 1600m</span>
-                </div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Mark</th>
-                            <th>#</th>
-                            <th>Horse</th>
-                            <th>Jockey</th>
-                            <th>Odds</th>
-                            <th>Win%</th>
-            <th>Score(P=3)</th><th>Score(P=4)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            
-                        <tr>
-                            <td><span class="symbol">◎</span></td>
-                            <td>0.0</td>
-                            <td>ロッシニアーナ</td>
-                            <td>ルメール</td>
-                            <td>---.-</td>
-                            <td>22.5%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol">○</span></td>
-                            <td>0.0</td>
-                            <td>ヴィヴァン</td>
-                            <td>川田</td>
-                            <td>---.-</td>
-                            <td>21.2%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol">▲</span></td>
-                            <td>0.0</td>
-                            <td>ヴァンドーム</td>
-                            <td>ルメール</td>
-                            <td>---.-</td>
-                            <td>18.7%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol">△</span></td>
-                            <td>0.0</td>
-                            <td>ヒルノハンブルク</td>
-                            <td>武豊</td>
-                            <td>---.-</td>
-                            <td>11.8%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>アルゴナヴィス</td>
-                            <td>高杉</td>
-                            <td>---.-</td>
-                            <td>10.6%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>ロフティストーリー</td>
-                            <td>横山武</td>
-                            <td>---.-</td>
-                            <td>9.5%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>イデアイゴッソウ</td>
-                            <td>横山典</td>
-                            <td>---.-</td>
-                            <td>7.6%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>フルオール</td>
-                            <td>鮫島駿</td>
-                            <td>---.-</td>
-                            <td>7.0%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>パカーラン</td>
-                            <td>松本</td>
-                            <td>---.-</td>
-                            <td>6.8%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>ルグランヴァン</td>
-                            <td>菅原明</td>
-                            <td>---.-</td>
-                            <td>6.4%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                    </tbody>
-                </table>
-            </div>
-            
-            <div class="race-container">
-                <div class="race-header">
-                    <span class="race-title">05 10R 10RクロッカスS15:05芝1400m16頭</span>
-                    <span class="race-meta">ID: 202605010110 | 0 | 1400m</span>
-                </div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Mark</th>
-                            <th>#</th>
-                            <th>Horse</th>
-                            <th>Jockey</th>
-                            <th>Odds</th>
-                            <th>Win%</th>
-            <th>Score(P=3)</th><th>Score(P=4)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            
-                        <tr>
-                            <td><span class="symbol">◎</span></td>
-                            <td>0.0</td>
-                            <td>オルネーロ</td>
-                            <td>ルメール</td>
-                            <td>---.-</td>
-                            <td>20.2%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol">○</span></td>
-                            <td>0.0</td>
-                            <td>フクチャンショウ</td>
-                            <td>戸崎圭</td>
-                            <td>---.-</td>
-                            <td>14.5%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol">▲</span></td>
-                            <td>0.0</td>
-                            <td>グッドピース</td>
-                            <td>西村淳</td>
-                            <td>---.-</td>
-                            <td>11.2%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol">△</span></td>
-                            <td>0.0</td>
-                            <td>トミーバローズ</td>
-                            <td>坂井</td>
-                            <td>---.-</td>
-                            <td>11.0%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>ミルトベスト</td>
-                            <td>横山武</td>
-                            <td>---.-</td>
-                            <td>9.8%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>ユウファラオ</td>
-                            <td>北村宏</td>
-                            <td>---.-</td>
-                            <td>7.8%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>トワニ</td>
-                            <td>菅原明</td>
-                            <td>---.-</td>
-                            <td>7.0%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>ルージュダリア</td>
-                            <td>荻野極</td>
-                            <td>---.-</td>
-                            <td>6.8%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>ホワイトドラゴン</td>
-                            <td>佐々木</td>
-                            <td>---.-</td>
-                            <td>6.4%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>アスミル</td>
-                            <td>団野</td>
-                            <td>---.-</td>
-                            <td>6.2%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                    </tbody>
-                </table>
-            </div>
-            
-            <div class="race-container">
-                <div class="race-header">
-                    <span class="race-title">05 11R 11R白富士S15:45芝2000m10頭</span>
-                    <span class="race-meta">ID: 202605010111 | 0 | 2000m</span>
-                </div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Mark</th>
-                            <th>#</th>
-                            <th>Horse</th>
-                            <th>Jockey</th>
-                            <th>Odds</th>
-                            <th>Win%</th>
-            <th>Score(P=3)</th><th>Score(P=4)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            
-                        <tr>
-                            <td><span class="symbol">◎</span></td>
-                            <td>0.0</td>
-                            <td>ダノンシーマ</td>
-                            <td>川田</td>
-                            <td>---.-</td>
-                            <td>27.3%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol">○</span></td>
-                            <td>0.0</td>
-                            <td>ヴィレム</td>
-                            <td>マーカンド</td>
-                            <td>---.-</td>
-                            <td>20.5%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol">▲</span></td>
-                            <td>0.0</td>
-                            <td>ウィクトルウェルス</td>
-                            <td>ルメール</td>
-                            <td>---.-</td>
-                            <td>20.1%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol">△</span></td>
-                            <td>0.0</td>
-                            <td>レディネス</td>
-                            <td>横山典</td>
-                            <td>---.-</td>
-                            <td>12.3%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>オーロラエックス</td>
-                            <td>松山</td>
-                            <td>---.-</td>
-                            <td>12.2%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>キングズパレス</td>
-                            <td>池添</td>
-                            <td>---.-</td>
-                            <td>9.7%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>シンハナーダ</td>
-                            <td>鮫島駿</td>
-                            <td>---.-</td>
-                            <td>9.0%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>セレシオン</td>
-                            <td>荻野極</td>
-                            <td>---.-</td>
-                            <td>8.1%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>ピースワンデュック</td>
-                            <td>柴田善</td>
-                            <td>---.-</td>
-                            <td>7.5%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>マイネルモーント</td>
-                            <td>丹内</td>
-                            <td>---.-</td>
-                            <td>7.5%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                    </tbody>
-                </table>
-            </div>
-            
-            <div class="race-container">
-                <div class="race-header">
-                    <span class="race-title">08 9R 9R長浜特別14:20ダ1400m19頭</span>
-                    <span class="race-meta">ID: 202608020109 | 0 | 1400m</span>
-                </div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Mark</th>
-                            <th>#</th>
-                            <th>Horse</th>
-                            <th>Jockey</th>
-                            <th>Odds</th>
-                            <th>Win%</th>
-            <th>Score(P=3)</th><th>Score(P=4)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            
-                        <tr>
-                            <td><span class="symbol">◎</span></td>
-                            <td>0.0</td>
-                            <td>アレ</td>
-                            <td>川田</td>
-                            <td>---.-</td>
-                            <td>25.1%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol">○</span></td>
-                            <td>0.0</td>
-                            <td>アスクアイルビゼア</td>
-                            <td>坂井</td>
-                            <td>---.-</td>
-                            <td>10.0%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol">▲</span></td>
-                            <td>0.0</td>
-                            <td>フラーハ</td>
-                            <td>津村</td>
-                            <td>---.-</td>
-                            <td>7.6%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol">△</span></td>
-                            <td>0.0</td>
-                            <td>ワイノナオミ</td>
-                            <td>藤岡佑</td>
-                            <td>---.-</td>
-                            <td>7.4%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>ペイシャケイプ</td>
-                            <td>横山典</td>
-                            <td>---.-</td>
-                            <td>7.2%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>ユウトザレン</td>
-                            <td>高杉</td>
-                            <td>---.-</td>
-                            <td>6.6%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>ポッドドンナー</td>
-                            <td>吉村</td>
-                            <td>---.-</td>
-                            <td>6.3%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>クリノオリーブ</td>
-                            <td>高杉</td>
-                            <td>---.-</td>
-                            <td>5.8%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>サンガネーブ</td>
-                            <td>松本</td>
-                            <td>---.-</td>
-                            <td>5.5%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>ルークススペイ</td>
-                            <td>団野</td>
-                            <td>---.-</td>
-                            <td>5.5%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                    </tbody>
-                </table>
-            </div>
-            
-            <div class="race-container">
-                <div class="race-header">
-                    <span class="race-title">08 10R 10R許波多特別14:55芝2400m10頭</span>
-                    <span class="race-meta">ID: 202608020110 | 0 | 2400m</span>
-                </div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Mark</th>
-                            <th>#</th>
-                            <th>Horse</th>
-                            <th>Jockey</th>
-                            <th>Odds</th>
-                            <th>Win%</th>
-            <th>Score(P=3)</th><th>Score(P=4)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            
-                        <tr>
-                            <td><span class="symbol">◎</span></td>
-                            <td>0.0</td>
-                            <td>ヴァリージア</td>
-                            <td>ルメール</td>
-                            <td>---.-</td>
-                            <td>20.2%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol">○</span></td>
-                            <td>0.0</td>
-                            <td>スカイサーベイ</td>
-                            <td>北村友</td>
-                            <td>---.-</td>
-                            <td>12.5%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol">▲</span></td>
-                            <td>0.0</td>
-                            <td>サトノスカイターフ</td>
-                            <td>荻野極</td>
-                            <td>---.-</td>
-                            <td>9.2%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol">△</span></td>
-                            <td>0.0</td>
-                            <td>オメガナビゲーター</td>
-                            <td>鮫島駿</td>
-                            <td>---.-</td>
-                            <td>8.1%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>ボンドロア</td>
-                            <td>太宰</td>
-                            <td>---.-</td>
-                            <td>7.8%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>アルベリック</td>
-                            <td>鮫島駿</td>
-                            <td>---.-</td>
-                            <td>7.4%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>オウケンボルト</td>
-                            <td>北村友</td>
-                            <td>---.-</td>
-                            <td>6.6%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>ウェイビー</td>
-                            <td>藤懸</td>
-                            <td>---.-</td>
-                            <td>6.2%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>エルディアブロ</td>
-                            <td>田山</td>
-                            <td>---.-</td>
-                            <td>3.1%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>サイモンルモンド</td>
-                            <td>松若</td>
-                            <td>---.-</td>
-                            <td>2.5%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                    </tbody>
-                </table>
-            </div>
-            
-            <div class="race-container">
-                <div class="race-header">
-                    <span class="race-title">08 11R 11R舞鶴S15:30ダ1800m13頭</span>
-                    <span class="race-meta">ID: 202608020111 | 0 | 1800m</span>
-                </div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Mark</th>
-                            <th>#</th>
-                            <th>Horse</th>
-                            <th>Jockey</th>
-                            <th>Odds</th>
-                            <th>Win%</th>
-            <th>Score(P=3)</th><th>Score(P=4)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            
-                        <tr>
-                            <td><span class="symbol">◎</span></td>
-                            <td>0.0</td>
-                            <td>プロミストジーン</td>
-                            <td>マーカンド</td>
-                            <td>---.-</td>
-                            <td>10.9%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol">○</span></td>
-                            <td>0.0</td>
-                            <td>ハワイアンティアレ</td>
-                            <td>池添</td>
-                            <td>---.-</td>
-                            <td>10.9%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol">▲</span></td>
-                            <td>0.0</td>
-                            <td>スミ</td>
-                            <td>マーカンド</td>
-                            <td>---.-</td>
-                            <td>10.8%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol">△</span></td>
-                            <td>0.0</td>
-                            <td>メテオールライト</td>
-                            <td>岩田望</td>
-                            <td>---.-</td>
-                            <td>10.4%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>ロフティストーリー</td>
-                            <td>横山武</td>
-                            <td>---.-</td>
-                            <td>9.6%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>フラッパールック</td>
-                            <td>北村宏</td>
-                            <td>---.-</td>
-                            <td>7.4%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>ルージュアベリア</td>
-                            <td>坂井</td>
-                            <td>---.-</td>
-                            <td>7.3%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>メイショウオーロラ</td>
-                            <td>石橋脩</td>
-                            <td>---.-</td>
-                            <td>6.7%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>メイショウポペット</td>
-                            <td>酒井</td>
-                            <td>---.-</td>
-                            <td>5.4%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>ツキノアカリ</td>
-                            <td>和田竜</td>
-                            <td>---.-</td>
-                            <td>5.0%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                    </tbody>
-                </table>
-            </div>
-            
-            <div class="race-container">
-                <div class="race-header">
-                    <span class="race-title">10 9R 9R有田特別14:10ダ1000m19頭</span>
-                    <span class="race-meta">ID: 202610010309 | 0 | 1000m</span>
-                </div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Mark</th>
-                            <th>#</th>
-                            <th>Horse</th>
-                            <th>Jockey</th>
-                            <th>Odds</th>
-                            <th>Win%</th>
-            <th>Score(P=3)</th><th>Score(P=4)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            
-                        <tr>
-                            <td><span class="symbol">◎</span></td>
-                            <td>0.0</td>
-                            <td>ボルセーナ</td>
-                            <td>松山</td>
-                            <td>---.-</td>
-                            <td>10.9%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol">○</span></td>
-                            <td>0.0</td>
-                            <td>アスクアイルビゼア</td>
-                            <td>坂井</td>
-                            <td>---.-</td>
-                            <td>9.9%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol">▲</span></td>
-                            <td>0.0</td>
-                            <td>ジーベック</td>
-                            <td>坂井</td>
-                            <td>---.-</td>
-                            <td>9.9%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol">△</span></td>
-                            <td>0.0</td>
-                            <td>スノーサイレンス</td>
-                            <td>西村淳</td>
-                            <td>---.-</td>
-                            <td>8.2%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>タイセイアレス</td>
-                            <td>佐々木</td>
-                            <td>---.-</td>
-                            <td>8.0%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>ミニョンマルーン</td>
-                            <td>丹内</td>
-                            <td>---.-</td>
-                            <td>5.9%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>パールフロント</td>
-                            <td>川又</td>
-                            <td>---.-</td>
-                            <td>5.8%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>クリノオリーブ</td>
-                            <td>高杉</td>
-                            <td>---.-</td>
-                            <td>5.7%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>リクエイ</td>
-                            <td>今村</td>
-                            <td>---.-</td>
-                            <td>4.3%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>ジョヴィアン</td>
-                            <td>坂井</td>
-                            <td>---.-</td>
-                            <td>4.3%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                    </tbody>
-                </table>
-            </div>
-            
-            <div class="race-container">
-                <div class="race-header">
-                    <span class="race-title">10 10R 10R平尾台特別14:45ダ1700m18頭</span>
-                    <span class="race-meta">ID: 202610010310 | 0 | 1700m</span>
-                </div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Mark</th>
-                            <th>#</th>
-                            <th>Horse</th>
-                            <th>Jockey</th>
-                            <th>Odds</th>
-                            <th>Win%</th>
-            <th>Score(P=3)</th><th>Score(P=4)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            
-                        <tr>
-                            <td><span class="symbol">◎</span></td>
-                            <td>0.0</td>
-                            <td>エルフストラック</td>
-                            <td>Ｃデムーロ</td>
-                            <td>---.-</td>
-                            <td>16.9%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol">○</span></td>
-                            <td>0.0</td>
-                            <td>ヴィリアリート</td>
-                            <td>西村淳</td>
-                            <td>---.-</td>
-                            <td>8.0%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol">▲</span></td>
-                            <td>0.0</td>
-                            <td>レーヴドレフォン</td>
-                            <td>古川奈</td>
-                            <td>---.-</td>
-                            <td>7.7%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol">△</span></td>
-                            <td>0.0</td>
-                            <td>ワイノナオミ</td>
-                            <td>藤岡佑</td>
-                            <td>---.-</td>
-                            <td>7.4%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>ドゥラリス</td>
-                            <td>斎藤</td>
-                            <td>---.-</td>
-                            <td>7.1%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>ナリタヒカリ</td>
-                            <td>吉田隼</td>
-                            <td>---.-</td>
-                            <td>6.4%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>ユウェンタース</td>
-                            <td>岩田望</td>
-                            <td>---.-</td>
-                            <td>6.2%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>スマートプレシャス</td>
-                            <td>吉村</td>
-                            <td>---.-</td>
-                            <td>4.9%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>オカメノコイ</td>
-                            <td>岩田康</td>
-                            <td>---.-</td>
-                            <td>4.8%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>タマモナポリ</td>
-                            <td>岩田康</td>
-                            <td>---.-</td>
-                            <td>4.8%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                    </tbody>
-                </table>
-            </div>
-            
-            <div class="race-container">
-                <div class="race-header">
-                    <span class="race-title">10 11R 11R巌流島S15:20芝1200m20頭</span>
-                    <span class="race-meta">ID: 202610010311 | 0 | 1200m</span>
-                </div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Mark</th>
-                            <th>#</th>
-                            <th>Horse</th>
-                            <th>Jockey</th>
-                            <th>Odds</th>
-                            <th>Win%</th>
-            <th>Score(P=3)</th><th>Score(P=4)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            
-                        <tr>
-                            <td><span class="symbol">◎</span></td>
-                            <td>0.0</td>
-                            <td>ミルテンベルク</td>
-                            <td>Ｃデムーロ</td>
-                            <td>---.-</td>
-                            <td>17.6%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol">○</span></td>
-                            <td>0.0</td>
-                            <td>ルーフ</td>
-                            <td>石橋脩</td>
-                            <td>---.-</td>
-                            <td>10.0%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol">▲</span></td>
-                            <td>0.0</td>
-                            <td>トーラスシャイン</td>
-                            <td>丹内</td>
-                            <td>---.-</td>
-                            <td>7.6%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol">△</span></td>
-                            <td>0.0</td>
-                            <td>エスペシャリー</td>
-                            <td>丹内</td>
-                            <td>---.-</td>
-                            <td>7.2%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>トールキン</td>
-                            <td>斎藤</td>
-                            <td>---.-</td>
-                            <td>7.1%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>ゴールドサーベル</td>
-                            <td>荻野琢</td>
-                            <td>---.-</td>
-                            <td>6.7%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>メイショウピース</td>
-                            <td>丸山</td>
-                            <td>---.-</td>
-                            <td>6.5%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>デイトナモード</td>
-                            <td>津村</td>
-                            <td>---.-</td>
-                            <td>6.1%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>ポエットリー</td>
-                            <td>鮫島駿</td>
-                            <td>---.-</td>
-                            <td>5.6%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                        <tr>
-                            <td><span class="symbol"></span></td>
-                            <td>0.0</td>
-                            <td>ロードトレイル</td>
-                            <td>長浜</td>
-                            <td>---.-</td>
-                            <td>5.4%</td>
-                <td style="">0.0000</td><td style="font-weight:bold">0.0000</td></tr>
-                    </tbody>
-                </table>
-            </div>
-            </body></html>

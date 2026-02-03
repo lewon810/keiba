@@ -54,17 +54,11 @@ def generate_report(start_year, end_year, output_file="evaluate.html", power_min
     artifacts = joblib.load(os.path.join(settings.MODEL_DIR, 'encoders.pkl'))
     
     # Load Data
+    # Load Data
     print("Loading Data...")
-    raw_df = pd.DataFrame()
-    dfs = []
-    for y in range(start_year, end_year + 1):
-        p = os.path.join(settings.RAW_DATA_DIR, f"results_{y}.csv")
-        if os.path.exists(p):
-            dfs.append(pd.read_csv(p))
+    raw_df = preprocess.load_data(start_year=start_year, end_year=end_year)
     
-    if dfs:
-        raw_df = pd.concat(dfs, ignore_index=True)
-    else:
+    if raw_df.empty:
         print("No data found, skipping.")
         return
 
@@ -112,7 +106,10 @@ def generate_report(start_year, end_year, output_file="evaluate.html", power_min
     features = [
         'jockey_win_rate', 'trainer_win_rate', 'horse_id', 'jockey_id', 'trainer_id',
         'waku', 'umaban', 'course_type', 'distance', 'weather', 'condition',
-        'lag1_rank', 'lag1_speed_index', 'interval', 'weight_diff'
+        'lag1_rank', 'lag1_speed_index', 'interval', 'weight_diff',
+        'sire_id', 'damsire_id', 'running_style',
+        'sire_win_rate', 'damsire_win_rate',
+        'course_type_win_rate', 'dist_cat_win_rate'
     ]
     
     print("Predicting...")
