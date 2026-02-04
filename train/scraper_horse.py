@@ -41,98 +41,6 @@ def scrape_horse_profile(horse_id):
     }
     
     try:
-        # Blood table is usually div.blood_table or class="blood_table"
-        # Netkeiba structure:
-        # <table> class="blood_table"
-        # Row 0, Col 0: Sire (Father)
-        # Row 1, Col 0: Dam (Mother)
-        # We want Sire (Full) and Dam's Sire (Broodmare Sire)
-        
-        # Sire: 0-0
-        # DamSire: 1-0 -> Father
-        
-        table = soup.select_one("table.blood_table")
-        if table:
-            rows = table.find_all("tr")
-            
-            # Sire is in the first row, usually spanning multiple rows
-            # simple lookup: find first 'td' with link
-            
-            # Let's try selecting by link structure if possible, but structure varies.
-            # Standard 5-generation table.
-            
-            # Sire (Father) - Top-left cell
-            sire_node = rows[0].select_one("td a")
-            if sire_node:
-                profile["sire_name"] = sire_node.get_text(strip=True)
-                href = sire_node.get("href") # /horse/00000000/
-                if href:
-                    profile["sire_id"] = href.split("/")[-2]
-            
-            # Dam is row 16 (in 5-gen table, it's the bottom half)
-            # Actually, let's look for Broodmare Sire (Mother's Father).
-            # Structure: 
-            # 0: Sire
-            # 16: Dam
-            #  -> Inside Dam's section, top is DamSire.
-            
-            # Easier approach: Get all links in the table and map positions? No.
-            # Row index strategy for 5-generation table:
-            # 0: Sire
-            # 16: Dam
-            # 16: Dam -> row[16] col 0 is Dam.
-            # DamSire is Dam's Father.
-            # In the table structure, DamSire is usually at row 16, col 1 (if col 0 is Dam).
-            # Wait, `rowspan` makes this tricky.
-            
-            # Alternative: text based search is unreliable.
-            
-            # Layout:
-            # [Sire] ...
-            # [Dam ] [DamSire] ...
-            
-            # Usually:
-            # tr[0] td[0] = Sire
-            # tr[16] td[0] = Dam (spanning) -> td[1] ? No.
-            
-            # Let's use a simpler heuristic.
-            # Inspect URLs.
-            all_links = table.select("a[href^='/horse/']")
-            # 0: Sire
-            # 1: Sire's Sire
-            # ...
-            # It's hard to predict index without parsing table structure.
-            
-            # Let's rely on `rowspan` parsing if we want to be precise, OR use `db.netkeiba.com/horse/{id}` profile page instead of `ped`.
-            # Profile page usually lists: "父:", "母:"
-            # But we want DamSire. "母父" is often listed in "血統情報" or similar text.
-            pass
-
-    except Exception as e:
-        print(f"Error parsing table for {horse_id}: {e}")
-        
-    # Retry with Main Profile Page which is simpler for direct parents
-    # https://db.netkeiba.com/horse/{horse_id}/
-    # dl.racedata or table.db_prof_table
-    # Actually, main page might not listing IDs nicely.
-    # Back to `ped` page.
-    
-    # Robust scrape for pedigee table:
-    # Top Left cell = Sire.
-    # Bottom Left cell (visually) = Dam.
-    # The cell to the right of Dam is DamSire.
-    
-    # Let's try to grab all 62(ish) horses and deduce.
-    # OR: Just grab "Sire" and "Dam".
-    # DamSire is important? Yes ("母父").
-    
-    # Netkeiba:
-    # tr[0] td[0] [rowspan=16] -> Sire
-    # tr[16] td[0] [rowspan=16] -> Dam
-    # Inside Dam's block:
-    #   tr[16] td[1] [rowspan=8] -> DamSire
-    
-    try:
         table = soup.select_one("table.blood_table")
         if table:
             rows = table.find_all("tr")
@@ -189,7 +97,8 @@ def resolve_path(path_str):
     return os.path.join(settings.RAW_DATA_DIR, path_str)
 
 def normalize_id(val):
-    s = str(val)
+    """正規化: 文字列化 -> 前後空白削除 -> .0削除"""
+    s = str(val).strip()
     if s.endswith(".0"):
         return s[:-2]
     return s
@@ -227,9 +136,8 @@ def scrape_missing_horses(input_path=None, output_path=None, target_db_path=None
     
     for path in files_to_scan:
         try:
-            # horse_idを文字列として読み込むか、floatの可能性を考慮して変換
-            df = pd.read_csv(path, usecols=['horse_id'])
-            # floatとして読み込まれた場合の対策 (例: 2016.0 -> 2016 -> '2016')に加え、文字列IDも考慮
+            # dtype=strを指定して読み込み、型変換の事故を防ぐ
+            df = pd.read_csv(path, usecols=['horse_id'], dtype={'horse_id': str})
             ids = df['horse_id'].dropna().apply(normalize_id)
             all_horse_ids.update(ids)
         except Exception as e:
@@ -242,10 +150,10 @@ def scrape_missing_horses(input_path=None, output_path=None, target_db_path=None
     existing_ids = set()
     if os.path.exists(target_db_path):
         try:
-            df_prof = pd.read_csv(target_db_path)
+            # dtype=strを指定
+            df_prof = pd.read_csv(target_db_path, dtype={'horse_id': str})
             # カラム存在確認
             if 'horse_id' in df_prof.columns:
-                # 既存DBも念のため同様に正規化
                 ids = df_prof['horse_id'].dropna().apply(normalize_id)
                 existing_ids = set(ids)
         except Exception as e:
@@ -299,14 +207,13 @@ def merge_profiles(source_path, target_path):
     print(f"マージ中: {source_path} -> {target_path}")
     
     try:
-        # IDを明示的に文字列として扱うのではなく、正規化してから処理する
-        df_source = pd.read_csv(source_path)
-        # ID正規化
+        # dtype=strを指定して読み込み
+        df_source = pd.read_csv(source_path, dtype={'horse_id': str})
         if 'horse_id' in df_source.columns:
              df_source['horse_id'] = df_source['horse_id'].dropna().apply(normalize_id)
 
         if os.path.exists(target_path):
-            df_target = pd.read_csv(target_path)
+            df_target = pd.read_csv(target_path, dtype={'horse_id': str})
             if 'horse_id' in df_target.columns:
                 df_target['horse_id'] = df_target['horse_id'].dropna().apply(normalize_id)
             
