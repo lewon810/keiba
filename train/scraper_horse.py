@@ -53,15 +53,10 @@ def scrape_horse_profile(horse_id):
                         profile["sire_name"] = a.get_text(strip=True)
                         profile["sire_id"] = a.get("href").split("/")[-2]
                 
-                # DamSire: Row 16, Cell 1 (since Cell 0 is Dam usually? No, Dam is Cell 0)
-                # Wait, if Dam is at Row 16, Cell 0.
-                # Then DamSire is Row 16, Cell 1.
-                
+                # DamSire: Row 16, Cell 1 
                 dam_row = rows[16]
                 cells = dam_row.find_all("td")
                 
-                # Cell 0 is Dam
-                # Cell 1 is DamSire
                 if len(cells) > 1:
                     ds_td = cells[1]
                     a = ds_td.find("a")
