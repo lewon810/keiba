@@ -67,17 +67,27 @@ jobs:
         $retryCount = 0
         $success = $false
         
+        # Check if we have data to merge
+        if (-not (Test-Path "train/data/raw/scraped_temp.csv")) {
+            Write-Host "No scraped_temp.csv found. Skipping merge."
+            exit 0
+        }
+        
         while (-not $success -and $retryCount -lt $maxRetries) {
             try {
                 Write-Host "Attempting merge and push ($($retryCount + 1)/$maxRetries)..."
                 
                 # Align with remote
                 git fetch origin main
+                if ($LASTEXITCODE -ne 0) { throw "Git fetch failed" }
+                
                 git reset --hard origin/main
+                if ($LASTEXITCODE -ne 0) { throw "Git reset failed" }
                 
                 # Merge local temp file into main profile DB
-                # This re-applies the changes on top of the latest code
+                Write-Host "Running merge script..."
                 python -m train.scraper_horse --merge_source "scraped_temp.csv" --merge_target "train/data/raw/horse_profiles.csv"
+                if ($LASTEXITCODE -ne 0) { throw "Python merge script failed with exit code $LASTEXITCODE" }
                 
                 git add train/data/raw/horse_profiles.csv
                 
@@ -91,6 +101,8 @@ jobs:
                 
                 git commit -m "Update horse_profiles.csv via scraper (${{ matrix.file }}) [skip ci]"
                 git push origin main
+                if ($LASTEXITCODE -ne 0) { throw "Git push failed" }
+                
                 $success = $true
                 Write-Host "Successfully pushed changes."
             }
