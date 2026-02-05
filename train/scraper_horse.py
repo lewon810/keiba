@@ -22,10 +22,7 @@ def fetch_html(url):
         return None
 
 def scrape_horse_profile(horse_id):
-    """
-    Scrapes Sire and Broodmare Sire from Netkeiba horse profile.
-    URL: https://db.netkeiba.com/horse/ped/{horse_id}/
-    """
+    """Scrapes Sire and Broodmare Sire from Netkeiba horse profile."""
     url = f"https://db.netkeiba.com/horse/ped/{horse_id}/"
     html = fetch_html(url)
     if not html: return None
@@ -44,7 +41,7 @@ def scrape_horse_profile(horse_id):
         table = soup.select_one("table.blood_table")
         if table:
             rows = table.find_all("tr")
-            if len(rows) >= 17: # Ensure table size
+            if len(rows) >= 17:
                 # Sire: Row 0, Cell 0
                 sire_td = rows[0].find("td")
                 if sire_td:
@@ -53,17 +50,15 @@ def scrape_horse_profile(horse_id):
                         profile["sire_name"] = a.get_text(strip=True)
                         profile["sire_id"] = a.get("href").split("/")[-2]
                 
-                # DamSire: Row 16, Cell 1 
+                # DamSire: Row 16, Cell 1
                 dam_row = rows[16]
                 cells = dam_row.find_all("td")
-                
                 if len(cells) > 1:
                     ds_td = cells[1]
                     a = ds_td.find("a")
                     if a:
                         profile["damsire_name"] = a.get_text(strip=True)
                         profile["damsire_id"] = a.get("href").split("/")[-2]
-                        
     except Exception as e:
         pass
 
@@ -74,19 +69,15 @@ import sys
 
 def get_args():
     parser = argparse.ArgumentParser(description="Scrape or Merge Horse Profiles")
-    parser.add_argument("--input", help="Input result CSV file (filename in raw dir or full path) to scrape missing horses from")
-    parser.add_argument("--output", help="Output CSV file for scraped profiles")
-    parser.add_argument("--target", help="Existing profile database to check against (default: horse_profiles.csv in raw dir)")
-    
-    parser.add_argument("--merge_source", help="Source CSV to merge into target")
-    parser.add_argument("--merge_target", help="Target CSV to update (default: horse_profiles.csv in raw dir)")
-    
+    parser.add_argument("--input", help="Input result CSV file")
+    parser.add_argument("--output", help="Output CSV file")
+    parser.add_argument("--target", help="Existing profile database")
+    parser.add_argument("--merge_source", help="Source CSV to merge")
+    parser.add_argument("--merge_target", help="Target CSV to update")
     return parser.parse_args()
 
 def resolve_path(path_str):
-    """Resolves path relative to RAW_DATA_DIR if it's just a filename."""
-    if not path_str:
-        return None
+    if not path_str: return None
     if os.path.isabs(path_str) or os.sep in path_str or '/' in path_str:
         return path_str
     return os.path.join(settings.RAW_DATA_DIR, path_str)
@@ -99,11 +90,6 @@ def normalize_id(val):
     return s
 
 def scrape_missing_horses(input_path=None, output_path=None, target_db_path=None):
-    """
-    生データから馬IDをスキャンし、既存のプロファイルDBと照合して
-    欠損している馬のプロファイルをスクレイピングします。
-    """
-    # デフォルト設定
     if not target_db_path:
         target_db_path = os.path.join(settings.RAW_DATA_DIR, "horse_profiles.csv")
     else:
@@ -111,27 +97,23 @@ def scrape_missing_horses(input_path=None, output_path=None, target_db_path=None
     
     # 1. 結果データからユニークな馬IDを収集
     all_horse_ids = set()
-    
     files_to_scan = []
+    
     if input_path:
-        # 入力パスの解決
         full_input_path = resolve_path(input_path)
         if os.path.exists(full_input_path):
             files_to_scan.append(full_input_path)
-            print(f"単一ファイルをスキャン中: {full_input_path}")
         else:
             print(f"エラー: 入力ファイルが見つかりません: {full_input_path}")
             return
     else:
-        # 全ファイルをスキャン
         scan_files = [f for f in os.listdir(settings.RAW_DATA_DIR) if f.startswith('results_') and f.endswith('.csv')]
-        print("全結果ファイルから馬IDをスキャン中...")
         for f in scan_files:
             files_to_scan.append(os.path.join(settings.RAW_DATA_DIR, f))
     
     for path in files_to_scan:
         try:
-            # dtype=strを指定して読み込み、型変換の事故を防ぐ
+            # 【重要】dtype=str を指定
             df = pd.read_csv(path, usecols=['horse_id'], dtype={'horse_id': str})
             ids = df['horse_id'].dropna().apply(normalize_id)
             all_horse_ids.update(ids)
@@ -141,13 +123,12 @@ def scrape_missing_horses(input_path=None, output_path=None, target_db_path=None
             
     print(f"ソース内の全ユニーク馬ID数: {len(all_horse_ids)}")
     
-    # 2. 既存プロファイルの読み込み (ターゲットDB)
+    # 2. 既存プロファイルの読み込み
     existing_ids = set()
     if os.path.exists(target_db_path):
         try:
-            # dtype=strを指定
+            # 【重要】dtype=str を指定
             df_prof = pd.read_csv(target_db_path, dtype={'horse_id': str})
-            # カラム存在確認
             if 'horse_id' in df_prof.columns:
                 ids = df_prof['horse_id'].dropna().apply(normalize_id)
                 existing_ids = set(ids)
@@ -164,15 +145,10 @@ def scrape_missing_horses(input_path=None, output_path=None, target_db_path=None
         print("新規スクレイピング対象の馬はありません。")
         return
 
-    # 出力パスの決定
     if not output_path:
-        # 出力が指定されていない場合はターゲットDBに追加する形をとる
         output_path = target_db_path
-    
     output_path = resolve_path(output_path)
-    print(f"スクレイピングデータを保存: {output_path}")
-
-    # 4. スクレイピング実行
+    
     new_data = []
     BUFFER_SIZE = 50
     
@@ -180,29 +156,24 @@ def scrape_missing_horses(input_path=None, output_path=None, target_db_path=None
         data = scrape_horse_profile(hid)
         if data:
             new_data.append(data)
-            
-        # 逐次保存
         if len(new_data) >= BUFFER_SIZE:
             _append_profiles(new_data, output_path)
             new_data = []
             
-    # 最終保存
     if new_data:
         _append_profiles(new_data, output_path)
 
 def merge_profiles(source_path, target_path):
-    """ソースCSVをターゲットCSVにマージし、重複を排除します。"""
     source_path = resolve_path(source_path)
     target_path = resolve_path(target_path)
     
     if not os.path.exists(source_path):
-        print(f"ソースファイルが見つかりません: {source_path}")
         return
     
     print(f"マージ中: {source_path} -> {target_path}")
     
     try:
-        # dtype=strを指定して読み込み
+        # 【重要】dtype=str を指定
         df_source = pd.read_csv(source_path, dtype={'horse_id': str})
         if 'horse_id' in df_source.columns:
              df_source['horse_id'] = df_source['horse_id'].dropna().apply(normalize_id)
@@ -211,16 +182,12 @@ def merge_profiles(source_path, target_path):
             df_target = pd.read_csv(target_path, dtype={'horse_id': str})
             if 'horse_id' in df_target.columns:
                 df_target['horse_id'] = df_target['horse_id'].dropna().apply(normalize_id)
-            
-            # 結合
             df_combined = pd.concat([df_target, df_source])
         else:
             df_combined = df_source
             
-        # 重複排除
         if 'horse_id' in df_combined.columns:
             before = len(df_combined)
-            # 後勝ち (ソース側のデータを優先)
             df_combined = df_combined.drop_duplicates(subset=['horse_id'], keep='last')
             after = len(df_combined)
             print(f"マージ完了。 行数: {before} -> {after} ({before - after} 件の重複を削除)")
@@ -229,25 +196,20 @@ def merge_profiles(source_path, target_path):
         print("マージ処理完了。")
         
     except Exception as e:
-        print(f"マージ中にエラーが発生しました: {e}")
+        print(f"マージエラー: {e}")
         sys.exit(1)
 
 def _append_profiles(data, path):
     if not data: return
     df = pd.DataFrame(data)
     exists = os.path.exists(path)
-    
-    # ディレクトリ作成確認
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    
     df.to_csv(path, mode='a', header=not exists, index=False, encoding='utf-8')
 
 if __name__ == "__main__":
     args = get_args()
-    
     if args.merge_source:
-        if not args.merge_target:
-             args.merge_target = "horse_profiles.csv" # デフォルト
+        if not args.merge_target: args.merge_target = "horse_profiles.csv"
         merge_profiles(args.merge_source, args.merge_target)
     else:
         scrape_missing_horses(args.input, args.output, args.target)
