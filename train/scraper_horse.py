@@ -148,6 +148,8 @@ def scrape_missing_horses(input_path=None, output_path=None, target_db_path=None
     if not output_path:
         output_path = target_db_path
     output_path = resolve_path(output_path)
+    if os.path.exists(output_path):
+        os.remove(output_path) # output_pathに既存データがあるなら全て削除する
     
     new_data = []
     BUFFER_SIZE = 50

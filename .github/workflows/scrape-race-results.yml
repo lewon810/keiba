@@ -1,4 +1,4 @@
-name: Scrape Race Data
+name: Scrape Race Results
 
 on:
   workflow_dispatch:
