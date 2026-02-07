@@ -40,6 +40,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         fetch-depth: 0 # Fetch all history for push safety
+        ref: main
 
     - name: Set up Python
       uses: actions/setup-python@v5
