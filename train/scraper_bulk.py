@@ -9,7 +9,7 @@ from . import settings
 import re
 
 def fetch_html(url):
-    """Fetches HTML with simple retry and random sleep."""
+    """HTMLをシンプルなリトライとランダムスリープ付きで取得します。"""
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
     }
@@ -24,9 +24,9 @@ def fetch_html(url):
 
 def get_race_ids(year, month):
     """
-    Fetches race IDs for a given year and month.
-    Uses race.netkeiba.com/top/calendar.html because it reliably lists specific dates,
-    unlike db.netkeiba.com/top/calendar.html which can be messy.
+    指定された年月のレースIDを取得します。
+    race.netkeiba.com/top/calendar.htmlを使用します。具体的な日付が確実に記載されているためです。
+    (db.netkeiba.com/top/calendar.htmlは形式が乱れていることがあります)
     """
     # 1. Get Calendar Page to find dates
     url = f"https://race.netkeiba.com/top/calendar.html?year={year}&month={month}"
@@ -117,7 +117,8 @@ def scrape_race_data(race_id):
         if racedata:
             # Date
             dt_text = racedata.select_one("dt").get_text(strip=True) if racedata.select_one("dt") else ""
-            race_info["date"] = dt_text.split(" ")[0] # "2016年1月5日"
+            # Original: 2016年1月5日
+            race_info["date"] = dt_text.split(" ")[0]
             
             # Conditions
             dd_text = racedata.select_one("dd").get_text(strip=True) if racedata.select_one("dd") else ""
@@ -224,8 +225,8 @@ def scrape_race_data(race_id):
 
 def bulk_scrape(year_start, year_end, month_start=1, month_end=12, force=False):
     """
-    Main function to scrape a range of data.
-    Saves incrementally to avoid data loss.
+    指定された範囲のデータをスクレイピングするメイン関数。
+    データ損失を防ぐために増分保存します。
     """
     for year in range(year_start, year_end + 1):
         save_path = os.path.join(settings.RAW_DATA_DIR, f"results_{year}.csv")
@@ -282,7 +283,26 @@ def bulk_scrape(year_start, year_end, month_start=1, month_end=12, force=False):
 def _save_buffer(data, path):
     if not data: return
     
+    if not data: return
+    
     df = pd.DataFrame(data)
+    
+    # 過去のフォーマットに合わせてカラム順序を強制
+    desired_order = [
+         "race_id", "course_type", "distance", "weather", "condition", "date", 
+         "rank", "waku", "umaban", "horse_name", "horse_id", 
+         "jockey", "jockey_id", "trainer", "trainer_id", 
+         "horse_weight", "weight_diff", "time", 
+         "passing", "last_3f", "odds", "popularity"
+    ]
+    # カラムが存在する場合のみ並べ替え
+    final_cols = [c for c in desired_order if c in df.columns]
+    # その他を追加
+
+    for c in df.columns:
+        if c not in final_cols: final_cols.append(c)
+        
+    df = df[final_cols]
     # Check if file exists to determine header
     file_exists = os.path.exists(path)
     

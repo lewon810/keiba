@@ -9,7 +9,7 @@ def load_data(start_year=None, end_year=None):
     files = [f for f in os.listdir(settings.RAW_DATA_DIR) if f.startswith('results_') and f.endswith('.csv')]
     dfs = []
     
-    # Filter files based on year in filename (results_YYYY.csv)
+    # results_YYYY.csv という形式のファイル名から年を抽出してフィルタリング
     target_files = []
     if start_year and end_year:
         target_years = range(start_year, end_year + 1)
@@ -38,7 +38,12 @@ def load_data(start_year=None, end_year=None):
     for f in target_files:
         path = os.path.join(settings.RAW_DATA_DIR, f)
         try:
-            df = pd.read_csv(path)
+            # Dtype optimized to prevent warnings
+            df = pd.read_csv(path, dtype={'horse_id': str, 'jockey_id': str, 'trainer_id': str})
+            # Drop invalid dates if any
+            # もし日付列が存在する場合、数値型への変換や修正が必要な場合がありますが、
+            # 基本的には後続の処理で上書きまたはパースされます
+            pass
             dfs.append(df)
         except Exception as e:
             print(f"Skipping {f}: {e}")
@@ -62,10 +67,10 @@ def load_data(start_year=None, end_year=None):
         print("Merging horse profiles (Pedigree)...")
         try:
             profiles = pd.read_csv(profile_path)
-            # Ensure ID is string
+            # IDを文字列型に変換
             if 'horse_id' in profiles.columns:
                 profiles['horse_id'] = profiles['horse_id'].astype(str)
-                # Keep relevant columns
+                # 必要な列のみマージ
                 cols_to_merge = ['horse_id', 'sire_id', 'damsire_id']
                 profiles = profiles[[c for c in cols_to_merge if c in profiles.columns]]
                 
@@ -106,7 +111,8 @@ def preprocess(df):
     choices = [0, 1, 2]
     df['rank_class'] = np.select(conditions, choices, default=3)
     
-    # Parse Date
+    # 日付のパース
+    # フォーマット: YYYY年%m月%d日
     df['date'] = pd.to_datetime(df['date'], format='%Y年%m月%d日', errors='coerce')
     
     # Feature: Time (seconds)

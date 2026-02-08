@@ -19,6 +19,7 @@ trigger: always_on
     - `app/scraper.py`
     - `app/predictor.py`
     - `app/main.py`  
+- テスト用のソースコード等のファイルを作成することは上記の通り歓迎ですが、テストが終わったら削除するなど整理を徹底してください。
 
 ## Directory Structure
 ```

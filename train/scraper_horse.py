@@ -8,18 +8,25 @@ from tqdm import tqdm
 from . import settings
 
 def fetch_html(url):
-    """Fetches HTML with simple retry and random sleep."""
+    """Fetches HTML with retry logic and exponential backoff."""
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
     }
-    try:
-        time.sleep(0.6)
-        response = requests.get(url, headers=headers, timeout=10)
-        response.encoding = response.apparent_encoding
-        return response.text
-    except Exception as e:
-        print(f"Error fetching {url}: {e}")
-        return None
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            time.sleep(1 + attempt * 2)  # Exponential backoff: 1s, 3s, 5s
+            response = requests.get(url, headers=headers, timeout=10)
+            response.encoding = response.apparent_encoding
+            if response.status_code == 200:
+                return response.text
+            else:
+                print(f"Warning: {url} returned status code {response.status_code} (Attempt {attempt + 1}/{max_retries})")
+        except Exception as e:
+            print(f"Error fetching {url}: {e} (Attempt {attempt + 1}/{max_retries})")
+    
+    print(f"Failed to fetch {url} after {max_retries} attempts.")
+    return None
 
 def scrape_horse_profile(horse_id):
     """Scrapes Sire and Broodmare Sire from Netkeiba horse profile."""
