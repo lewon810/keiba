@@ -1,4 +1,4 @@
-name: Predict Weekend Races
+name: Predict
 
 on:
   workflow_dispatch:
