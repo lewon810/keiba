@@ -29,7 +29,12 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    - name: Run Weekend Predictions (HTML Report)
+    - name: Train Model
+      run: |
+        export PYTHONPATH=$PYTHONPATH:.
+        python -m train.train
+
+    - name: Run Predictions (HTML Report)
       run: |
         export PYTHONPATH=$PYTHONPATH:.
         python -m app.report.predict_html_generator
