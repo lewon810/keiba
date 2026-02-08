@@ -40,25 +40,14 @@ def generate_prediction_report(output_file="predict.html", power_min=None, power
     p_max = int(power_max) if power_max is not None else p_min
     power_values = list(range(p_min, p_max + 1))
     
-    # 1. Determine Target Date (Saturday or Sunday)
+    # 1. Determine Target Dates (Today + 6 days)
+    # The user requested to include all races for the week, not just weekends.
     today = datetime.now()
     target_dates = []
     
-    # If today is Sat/Sun, include today. If Fri, include Sat/Sun.
-    if today.weekday() == 4: # Friday
-        target_dates.append((today + timedelta(days=1)).strftime('%Y%m%d'))
-        target_dates.append((today + timedelta(days=2)).strftime('%Y%m%d'))
-    elif today.weekday() == 5: # Saturday
-        target_dates.append(today.strftime('%Y%m%d'))
-        target_dates.append((today + timedelta(days=1)).strftime('%Y%m%d'))
-    elif today.weekday() == 6: # Sunday
-        target_dates.append(today.strftime('%Y%m%d'))
-    else:
-        # Debug/Dev: Force next Saturday
-        print("Not a weekend. Searching for next Saturday...")
-        days_ahead = 5 - today.weekday()
-        if days_ahead <= 0: days_ahead += 7
-        target_dates.append((today + timedelta(days=days_ahead)).strftime('%Y%m%d'))
+    for i in range(7):
+        d = today + timedelta(days=i)
+        target_dates.append(d.strftime('%Y%m%d'))
 
     print(f"Target Dates: {target_dates}")
     
