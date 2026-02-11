@@ -220,6 +220,10 @@ def preprocess(df):
     # Lag 1: Previous Speed Index
     df['lag1_speed_index'] = df.groupby('horse_id')['speed_index'].shift(1).fillna(0)
     
+    # Lag 1: Previous Last 3F Time (前走の上がり3F)
+    # This is VALID - it's previous race data, not current race (no leakage)
+    df['lag1_last_3f'] = df.groupby('horse_id')['last_3f_time'].shift(1).fillna(0)
+    
     # Lag 1: Interval (Days since last race)
     df['interval'] = (df['date'] - df.groupby('horse_id')['date'].shift(1)).dt.days.fillna(365) # Default 1 year
 
@@ -562,6 +566,10 @@ def transform(df, artifacts):
         
     df['lag1_rank'] = df.groupby('horse_id')['rank'].shift(1).fillna(99).astype(int)
     df['lag1_speed_index'] = df.groupby('horse_id')['speed_index'].shift(1).fillna(0)
+    
+    # Lag 1: Previous Last 3F Time (前走の上がり3F)
+    df['lag1_last_3f'] = df.groupby('horse_id')['last_3f_time'].shift(1).fillna(0)
+    
     df['interval'] = (df['date'] - df.groupby('horse_id')['date'].shift(1)).dt.days.fillna(365)
 
     # Encoding using Artifacts

@@ -65,6 +65,7 @@ def predict(race_data, return_df=False, power=None):
             print(f"History load failed: {e}")
             df['lag1_rank'] = 99
             df['lag1_speed_index'] = 0
+            df['lag1_last_3f'] = 0
             df['interval'] = 365
 
         # 2. Jockey Win Rate
@@ -177,14 +178,9 @@ def predict(race_data, return_df=False, power=None):
             df['weight_diff'] = 0
         df['weight_diff'] = pd.to_numeric(df['weight_diff'], errors='coerce').fillna(0)
 
-        # Feature: Last 3F and Pace (Inference - No data available before race)
-        # Use default values (average) since these are post-race statistics
-        # For evaluation, these will be computed in transform() function
-        if 'last_3f' not in df.columns or df['last_3f'].isna().all():
-            df['last_3f_time'] = 0  # Unknown
-            df['last_3f_rank'] = 99  # Unknown
-            df['last_3f_deviation'] = 50  # Average
-        
+        # Feature: Pace (predictable pre-race based on horse tendencies)
+        # Note: last_3f features removed - they are post-race data (data leakage)
+        # Pace features use historical passing data to predict race dynamics
         if 'passing' not in df.columns or df['passing'].isna().all():
             df['front_runner_count'] = 0  # Unknown
             df['pace_ratio'] = 0  # Unknown
@@ -193,11 +189,10 @@ def predict(race_data, return_df=False, power=None):
         features = [
             'jockey_win_rate', 'trainer_win_rate', 'horse_id', 'jockey_id', 'trainer_id',
             'waku', 'umaban', 'course_type', 'distance', 'weather', 'condition',
-            'lag1_rank', 'lag1_speed_index', 'interval', 'weight_diff',
+            'lag1_rank', 'lag1_speed_index', 'lag1_last_3f', 'interval', 'weight_diff',
             'sire_id', 'damsire_id', 'running_style',
             'sire_win_rate', 'damsire_win_rate',
             'course_type_win_rate', 'dist_cat_win_rate',
-            'last_3f_time', 'last_3f_rank', 'last_3f_deviation',
             'front_runner_count', 'pace_ratio'
         ]
 

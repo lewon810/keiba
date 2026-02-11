@@ -106,11 +106,10 @@ def generate_report(start_year, end_year, output_file="evaluate.html", power_min
     features = [
         'jockey_win_rate', 'trainer_win_rate', 'horse_id', 'jockey_id', 'trainer_id',
         'waku', 'umaban', 'course_type', 'distance', 'weather', 'condition',
-        'lag1_rank', 'lag1_speed_index', 'interval', 'weight_diff',
+        'lag1_rank', 'lag1_speed_index', 'lag1_last_3f', 'interval', 'weight_diff',
         'sire_id', 'damsire_id', 'running_style',
         'sire_win_rate', 'damsire_win_rate',
         'course_type_win_rate', 'dist_cat_win_rate',
-        'last_3f_time', 'last_3f_rank', 'last_3f_deviation',
         'front_runner_count', 'pace_ratio'
     ]
     
