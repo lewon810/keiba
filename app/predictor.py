@@ -177,6 +177,18 @@ def predict(race_data, return_df=False, power=None):
             df['weight_diff'] = 0
         df['weight_diff'] = pd.to_numeric(df['weight_diff'], errors='coerce').fillna(0)
 
+        # Feature: Last 3F and Pace (Inference - No data available before race)
+        # Use default values (average) since these are post-race statistics
+        # For evaluation, these will be computed in transform() function
+        if 'last_3f' not in df.columns or df['last_3f'].isna().all():
+            df['last_3f_time'] = 0  # Unknown
+            df['last_3f_rank'] = 99  # Unknown
+            df['last_3f_deviation'] = 50  # Average
+        
+        if 'passing' not in df.columns or df['passing'].isna().all():
+            df['front_runner_count'] = 0  # Unknown
+            df['pace_ratio'] = 0  # Unknown
+
         # 5. Predict
         features = [
             'jockey_win_rate', 'trainer_win_rate', 'horse_id', 'jockey_id', 'trainer_id',
@@ -184,7 +196,9 @@ def predict(race_data, return_df=False, power=None):
             'lag1_rank', 'lag1_speed_index', 'interval', 'weight_diff',
             'sire_id', 'damsire_id', 'running_style',
             'sire_win_rate', 'damsire_win_rate',
-            'course_type_win_rate', 'dist_cat_win_rate'
+            'course_type_win_rate', 'dist_cat_win_rate',
+            'last_3f_time', 'last_3f_rank', 'last_3f_deviation',
+            'front_runner_count', 'pace_ratio'
         ]
 
         # LambdaRank returns 1D score array (N,) - higher is better

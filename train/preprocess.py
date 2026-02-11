@@ -128,6 +128,67 @@ def preprocess(df):
             
     df['time_sec'] = df['time'].apply(parse_time)
     
+    # Feature: Last 3F (上がり3ハロン)
+    # Parse last_3f to numeric seconds
+    if 'last_3f' in df.columns:
+        df['last_3f_time'] = pd.to_numeric(df['last_3f'], errors='coerce').fillna(0)
+        
+        # Calculate last_3f rank within each race
+        df['last_3f_rank'] = df.groupby('race_id')['last_3f_time'].rank(method='min', ascending=True).fillna(99)
+        
+        # Calculate last_3f deviation score (偏差値: mean=50, std=10)
+        # Group by race to get relative performance
+        race_3f_stats = df.groupby('race_id')['last_3f_time'].agg(['mean', 'std']).reset_index()
+        race_3f_stats.columns = ['race_id', 'race_3f_mean', 'race_3f_std']
+        df = df.merge(race_3f_stats, on='race_id', how='left')
+        
+        # Deviation score: 50 - (value - mean) / std * 10
+        # Lower last_3f_time is better (faster), so we invert
+        df['last_3f_deviation'] = 50 - ((df['last_3f_time'] - df['race_3f_mean']) / df['race_3f_std'].replace(0, 1)) * 10
+        df['last_3f_deviation'] = df['last_3f_deviation'].fillna(50)  # Default to average
+        
+        # Drop temporary columns
+        df = df.drop(columns=['race_3f_mean', 'race_3f_std'], errors='ignore')
+    else:
+        df['last_3f_time'] = 0
+        df['last_3f_rank'] = 99
+        df['last_3f_deviation'] = 50
+    
+    # Feature: Pace (ペース情報)
+    # Count front-runners (逃げ・先行) in each race based on passing position
+    if 'passing' in df.columns:
+        # Extract first corner position from passing (e.g., "4-4" -> 4)
+        def get_first_position(passing):
+            if not passing or not isinstance(passing, str) or '-' not in passing:
+                return 99
+            try:
+                pos_list = [int(p) for p in passing.split('-') if p.isdigit()]
+                return pos_list[0] if pos_list else 99
+            except:
+                return 99
+        
+        df['first_position'] = df['passing'].apply(get_first_position)
+        
+        # Count front runners (position <= 2) per race
+        df['is_front_runner'] = (df['first_position'] <= 2).astype(int)
+        race_pace = df.groupby('race_id').agg({
+            'is_front_runner': 'sum',
+            'horse_id': 'count'  # Total horses in race
+        }).reset_index()
+        race_pace.columns = ['race_id', 'front_runner_count', 'race_size']
+        
+        df = df.merge(race_pace, on='race_id', how='left')
+        
+        # Pace ratio: front_runner_count / race_size
+        df['pace_ratio'] = df['front_runner_count'] / df['race_size'].replace(0, 1)
+        df['pace_ratio'] = df['pace_ratio'].fillna(0)
+        
+        # Drop temporary columns
+        df = df.drop(columns=['first_position', 'is_front_runner', 'race_size'], errors='ignore')
+    else:
+        df['front_runner_count'] = 0
+        df['pace_ratio'] = 0
+    
     # Feature: Speed Index (Z-score by Course & Distance)
     # Group by CourseType + Distance
     # Note: 'course_type' and 'distance' must exist from scraper update
@@ -387,6 +448,56 @@ def transform(df, artifacts):
         except:
             return np.nan
     df['time_sec'] = df['time'].apply(parse_time)
+    
+    # Feature: Last 3F (上がり3ハロン) - Same logic as preprocess
+    if 'last_3f' in df.columns:
+        df['last_3f_time'] = pd.to_numeric(df['last_3f'], errors='coerce').fillna(0)
+        
+        # Calculate last_3f rank within each race
+        df['last_3f_rank'] = df.groupby('race_id')['last_3f_time'].rank(method='min', ascending=True).fillna(99)
+        
+        # Calculate last_3f deviation score
+        race_3f_stats = df.groupby('race_id')['last_3f_time'].agg(['mean', 'std']).reset_index()
+        race_3f_stats.columns = ['race_id', 'race_3f_mean', 'race_3f_std']
+        df = df.merge(race_3f_stats, on='race_id', how='left')
+        
+        df['last_3f_deviation'] = 50 - ((df['last_3f_time'] - df['race_3f_mean']) / df['race_3f_std'].replace(0, 1)) * 10
+        df['last_3f_deviation'] = df['last_3f_deviation'].fillna(50)
+        
+        df = df.drop(columns=['race_3f_mean', 'race_3f_std'], errors='ignore')
+    else:
+        df['last_3f_time'] = 0
+        df['last_3f_rank'] = 99
+        df['last_3f_deviation'] = 50
+    
+    # Feature: Pace (ペース情報) - Same logic as preprocess
+    if 'passing' in df.columns:
+        def get_first_position(passing):
+            if not passing or not isinstance(passing, str) or '-' not in passing:
+                return 99
+            try:
+                pos_list = [int(p) for p in passing.split('-') if p.isdigit()]
+                return pos_list[0] if pos_list else 99
+            except:
+                return 99
+        
+        df['first_position'] = df['passing'].apply(get_first_position)
+        df['is_front_runner'] = (df['first_position'] <= 2).astype(int)
+        
+        race_pace = df.groupby('race_id').agg({
+            'is_front_runner': 'sum',
+            'horse_id': 'count'
+        }).reset_index()
+        race_pace.columns = ['race_id', 'front_runner_count', 'race_size']
+        
+        df = df.merge(race_pace, on='race_id', how='left')
+        df['pace_ratio'] = df['front_runner_count'] / df['race_size'].replace(0, 1)
+        df['pace_ratio'] = df['pace_ratio'].fillna(0)
+        
+        df = df.drop(columns=['first_position', 'is_front_runner', 'race_size'], errors='ignore')
+    else:
+        df['front_runner_count'] = 0
+        df['pace_ratio'] = 0
     
     # Feature: Speed Index
     # Use Artifacts if available (preferred for consistency)

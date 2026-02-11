@@ -34,7 +34,9 @@ def train_model(start_year, end_year):
         'lag1_rank', 'lag1_speed_index', 'interval', 'weight_diff',
         'sire_id', 'damsire_id', 'running_style',
         'sire_win_rate', 'damsire_win_rate', # New
-        'course_type_win_rate', 'dist_cat_win_rate' # New Aptitude Features
+        'course_type_win_rate', 'dist_cat_win_rate', # New Aptitude Features
+        'last_3f_time', 'last_3f_rank', 'last_3f_deviation', # New Last 3F Features
+        'front_runner_count', 'pace_ratio' # New Pace Features
     ]
     target = 'rank'  # Changed from 'rank_class' to 'rank' for LambdaRank
     
