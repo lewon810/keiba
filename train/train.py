@@ -2,7 +2,6 @@ import lightgbm as lgb
 import pandas as pd
 import joblib
 import os
-from sklearn.metrics import accuracy_score
 from . import settings
 from . import preprocess
 
@@ -28,7 +27,7 @@ def train_model(start_year, end_year):
     # Split
     train, valid, _ = preprocess.split_data(df)
     
-    # 3. Train
+    # 3. Train with LambdaRank
     features = [
         'jockey_win_rate', 'trainer_win_rate', 'horse_id', 'jockey_id', 'trainer_id',
         'waku', 'umaban', 'course_type', 'distance', 'weather', 'condition',
@@ -37,17 +36,34 @@ def train_model(start_year, end_year):
         'sire_win_rate', 'damsire_win_rate', # New
         'course_type_win_rate', 'dist_cat_win_rate' # New Aptitude Features
     ]
-    target = 'rank_class'
+    target = 'rank'  # Changed from 'rank_class' to 'rank' for LambdaRank
     
     print(f"Features: {features}")
     
-    lgb_train = lgb.Dataset(train[features], train[target])
-    lgb_eval = lgb.Dataset(valid[features], valid[target], reference=lgb_train)
+    # Sort by race_id to ensure group parameter alignment
+    train = train.sort_values('race_id').reset_index(drop=True)
+    valid = valid.sort_values('race_id').reset_index(drop=True)
+    
+    # Create group parameter (number of horses per race)
+    train_groups = train.groupby('race_id').size().to_list()
+    valid_groups = valid.groupby('race_id').size().to_list()
+    
+    print(f"Train: {len(train)} rows, {len(train_groups)} races")
+    print(f"Valid: {len(valid)} rows, {len(valid_groups)} races")
+    print(f"Train group sum: {sum(train_groups)}, should match {len(train)}")
+    print(f"Valid group sum: {sum(valid_groups)}, should match {len(valid)}")
+    
+    # Verify group parameter consistency
+    assert sum(train_groups) == len(train), "Train group parameter mismatch!"
+    assert sum(valid_groups) == len(valid), "Valid group parameter mismatch!"
+    
+    lgb_train = lgb.Dataset(train[features], train[target], group=train_groups)
+    lgb_eval = lgb.Dataset(valid[features], valid[target], group=valid_groups, reference=lgb_train)
     
     params = {
-        'objective': 'multiclass',
-        'num_class': 4,
-        'metric': 'multi_logloss',
+        'objective': 'lambdarank',
+        'metric': 'ndcg',
+        'ndcg_eval_at': [1, 3, 5],
         'boosting_type': 'gbdt',
         'learning_rate': 0.05,
         'num_leaves': 31,
@@ -55,7 +71,7 @@ def train_model(start_year, end_year):
         'seed': 42
     }
     
-    print("Starting training...")
+    print("Starting LambdaRank training...")
     model = lgb.train(
         params,
         lgb_train,

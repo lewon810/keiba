@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,7 +10,8 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&display=swap"
+        rel="stylesheet">
 
     <!-- Config for Tailwind -->
     <script>
@@ -37,10 +39,12 @@
         .chart-container {
             position: relative;
             width: 100%;
-            max-width: 800px; /* Limit max width for readability */
+            max-width: 800px;
+            /* Limit max width for readability */
             margin-left: auto;
             margin-right: auto;
-            height: 350px; /* Base height */
+            height: 350px;
+            /* Base height */
             max-height: 400px;
         }
 
@@ -73,6 +77,7 @@
         }
     </style>
 </head>
+
 <body class="font-sans antialiased">
 
     <!-- Chosen Palette: Warm Neutrals (Stone/Cream) with Amber Accents. Minimalistic and academic yet engaging. -->
@@ -97,17 +102,23 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16">
                 <div class="flex items-center">
-                    <span class="text-2xl font-bold text-brand-primary tracking-tight">Keiba<span class="text-brand-accent">AI</span> Lab</span>
+                    <span class="text-2xl font-bold text-brand-primary tracking-tight">Keiba<span
+                            class="text-brand-accent">AI</span> Lab</span>
                 </div>
                 <div class="hidden md:flex items-center space-x-8">
-                    <button onclick="scrollToSection('summary')" class="text-brand-muted hover:text-brand-accent transition-colors font-medium">概要</button>
-                    <button onclick="scrollToSection('analysis')" class="text-brand-muted hover:text-brand-accent transition-colors font-medium">分析結果</button>
-                    <button onclick="scrollToSection('simulation')" class="text-brand-muted hover:text-brand-accent transition-colors font-medium">シミュレーション</button>
-                    <button onclick="scrollToSection('methodology')" class="text-brand-muted hover:text-brand-accent transition-colors font-medium">再現コード</button>
+                    <button onclick="scrollToSection('summary')"
+                        class="text-brand-muted hover:text-brand-accent transition-colors font-medium">概要</button>
+                    <button onclick="scrollToSection('analysis')"
+                        class="text-brand-muted hover:text-brand-accent transition-colors font-medium">分析結果</button>
+                    <button onclick="scrollToSection('simulation')"
+                        class="text-brand-muted hover:text-brand-accent transition-colors font-medium">シミュレーション</button>
+                    <button onclick="scrollToSection('methodology')"
+                        class="text-brand-muted hover:text-brand-accent transition-colors font-medium">再現コード</button>
                 </div>
                 <!-- Mobile Menu Button (Simple implementation) -->
                 <div class="md:hidden flex items-center">
-                    <button class="text-brand-primary focus:outline-none" onclick="document.getElementById('mobile-menu').classList.toggle('hidden')">
+                    <button class="text-brand-primary focus:outline-none"
+                        onclick="document.getElementById('mobile-menu').classList.toggle('hidden')">
                         <span class="text-2xl">☰</span>
                     </button>
                 </div>
@@ -116,10 +127,14 @@
         <!-- Mobile Menu -->
         <div id="mobile-menu" class="hidden md:hidden bg-brand-surface border-t border-gray-100">
             <div class="px-2 pt-2 pb-3 space-y-1">
-                <button onclick="scrollToSection('summary')" class="block w-full text-left px-3 py-2 text-brand-primary hover:bg-brand-bg">概要</button>
-                <button onclick="scrollToSection('analysis')" class="block w-full text-left px-3 py-2 text-brand-primary hover:bg-brand-bg">分析結果</button>
-                <button onclick="scrollToSection('simulation')" class="block w-full text-left px-3 py-2 text-brand-primary hover:bg-brand-bg">シミュレーション</button>
-                <button onclick="scrollToSection('methodology')" class="block w-full text-left px-3 py-2 text-brand-primary hover:bg-brand-bg">再現コード</button>
+                <button onclick="scrollToSection('summary')"
+                    class="block w-full text-left px-3 py-2 text-brand-primary hover:bg-brand-bg">概要</button>
+                <button onclick="scrollToSection('analysis')"
+                    class="block w-full text-left px-3 py-2 text-brand-primary hover:bg-brand-bg">分析結果</button>
+                <button onclick="scrollToSection('simulation')"
+                    class="block w-full text-left px-3 py-2 text-brand-primary hover:bg-brand-bg">シミュレーション</button>
+                <button onclick="scrollToSection('methodology')"
+                    class="block w-full text-left px-3 py-2 text-brand-primary hover:bg-brand-bg">再現コード</button>
             </div>
         </div>
     </nav>
@@ -138,7 +153,7 @@
                 <strong class="text-brand-primary">「バリューベッティング戦略 (期待値投資)」</strong>の組み合わせです。<br>
                 的中率ではなく、<span class="text-brand-accent font-bold">回収率</span>の最大化を目指すこの手法を解説します。
             </p>
-            
+
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-10">
                 <div class="bg-brand-surface p-6 rounded-xl shadow-sm border border-stone-200">
                     <div class="text-3xl font-bold text-brand-accent mb-2">115%</div>
@@ -180,7 +195,8 @@
                         <canvas id="featureChart"></canvas>
                     </div>
                     <p class="text-sm text-brand-muted mt-4 p-4 bg-brand-bg rounded-lg">
-                        <strong>解説：</strong> 多くのファンが重視する「直近着順」よりも、「スピード指数（走破タイム補正値）」や「先行指数（テンの速さ）」が上位に来ています。これは、過小評価されている馬（＝オッズが高い馬）を見つけるための重要なシグナルです。
+                        <strong>解説：</strong>
+                        多くのファンが重視する「直近着順」よりも、「スピード指数（走破タイム補正値）」や「先行指数（テンの速さ）」が上位に来ています。これは、過小評価されている馬（＝オッズが高い馬）を見つけるための重要なシグナルです。
                     </p>
                 </div>
 
@@ -189,21 +205,28 @@
                     <h3 class="text-xl font-bold text-brand-primary">勝利のロジック：期待値 (EV)</h3>
                     <div class="space-y-4">
                         <div class="flex items-start">
-                            <div class="flex-shrink-0 h-8 w-8 rounded-full bg-brand-bg flex items-center justify-center text-brand-accent font-bold">1</div>
+                            <div
+                                class="flex-shrink-0 h-8 w-8 rounded-full bg-brand-bg flex items-center justify-center text-brand-accent font-bold">
+                                1</div>
                             <div class="ml-4">
                                 <h4 class="font-bold text-brand-primary">勝率予測 (Probability)</h4>
                                 <p class="text-sm text-brand-muted">LightGBM等のモデルを用いて、各馬が1着になる確率を算出します（例：馬Aの勝率 20%）。</p>
                             </div>
                         </div>
                         <div class="flex items-start">
-                            <div class="flex-shrink-0 h-8 w-8 rounded-full bg-brand-bg flex items-center justify-center text-brand-accent font-bold">2</div>
+                            <div
+                                class="flex-shrink-0 h-8 w-8 rounded-full bg-brand-bg flex items-center justify-center text-brand-accent font-bold">
+                                2</div>
                             <div class="ml-4">
                                 <h4 class="font-bold text-brand-primary">オッズ比較 (Implied Prob)</h4>
-                                <p class="text-sm text-brand-muted">市場のオッズから大衆の予測確率を逆算します。<br>単勝オッズ6.0倍 ≒ 勝率約13% (控除率抜き)。</p>
+                                <p class="text-sm text-brand-muted">市場のオッズから大衆の予測確率を逆算します。<br>単勝オッズ6.0倍 ≒ 勝率約13%
+                                    (控除率抜き)。</p>
                             </div>
                         </div>
                         <div class="flex items-start">
-                            <div class="flex-shrink-0 h-8 w-8 rounded-full bg-brand-bg flex items-center justify-center text-brand-accent font-bold">3</div>
+                            <div
+                                class="flex-shrink-0 h-8 w-8 rounded-full bg-brand-bg flex items-center justify-center text-brand-accent font-bold">
+                                3</div>
                             <div class="ml-4">
                                 <h4 class="font-bold text-brand-primary">バリューの発見 (Value)</h4>
                                 <p class="text-sm text-brand-muted">
@@ -258,15 +281,18 @@
                     <div class="space-y-6">
                         <div>
                             <label class="block text-sm font-bold text-brand-primary mb-2">現在の単勝オッズ (倍)</label>
-                            <input type="number" id="oddsInput" value="5.0" step="0.1" class="w-full p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-brand-accent focus:border-transparent transition-all font-mono text-lg">
+                            <input type="number" id="oddsInput" value="5.0" step="0.1"
+                                class="w-full p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-brand-accent focus:border-transparent transition-all font-mono text-lg">
                         </div>
                         <div>
                             <label class="block text-sm font-bold text-brand-primary mb-2">AIモデルの予測勝率 (%)</label>
-                            <input type="number" id="probInput" value="25" step="1" max="100" class="w-full p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-brand-accent focus:border-transparent transition-all font-mono text-lg">
+                            <input type="number" id="probInput" value="25" step="1" max="100"
+                                class="w-full p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-brand-accent focus:border-transparent transition-all font-mono text-lg">
                         </div>
                         <div>
                             <label class="block text-sm font-bold text-brand-primary mb-2">手持ち資金 (円)</label>
-                            <input type="number" id="bankrollInput" value="10000" step="1000" class="w-full p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-brand-accent focus:border-transparent transition-all font-mono text-lg">
+                            <input type="number" id="bankrollInput" value="10000" step="1000"
+                                class="w-full p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-brand-accent focus:border-transparent transition-all font-mono text-lg">
                         </div>
                     </div>
 
@@ -277,11 +303,12 @@
                             <span id="evDisplay" class="text-3xl font-bold text-brand-primary">125.0%</span>
                             <span class="text-xs text-gray-400 block mt-1">100%超なら投資対象</span>
                         </div>
-                        
+
                         <div class="bg-white p-6 rounded-xl border-l-4 border-brand-accent shadow-sm">
                             <span class="block text-sm text-brand-muted mb-1">推奨購入額 (ケリー基準 0.5倍)</span>
                             <span id="betAmountDisplay" class="text-4xl font-bold text-brand-accent">¥625</span>
-                            <span class="text-xs text-gray-400 block mt-1">資金に対する比率: <span id="kellyFractionDisplay">6.25%</span></span>
+                            <span class="text-xs text-gray-400 block mt-1">資金に対する比率: <span
+                                    id="kellyFractionDisplay">6.25%</span></span>
                         </div>
                     </div>
                 </div>
@@ -319,7 +346,7 @@
                             <span class="w-24 font-mono font-bold text-brand-accent">last_3f</span>
                             <span>上がり3ハロンタイム</span>
                         </li>
-                         <li class="flex items-center p-3 bg-white rounded shadow-sm">
+                        <li class="flex items-center p-3 bg-white rounded shadow-sm">
                             <span class="w-24 font-mono font-bold text-brand-accent">jockey_win</span>
                             <span>騎手勝率 (過去1年)</span>
                         </li>
@@ -334,7 +361,7 @@
                 <div class="lg:col-span-2">
                     <h3 class="text-xl font-bold text-brand-primary mb-4">2. モデル構築コード (Python)</h3>
                     <div class="code-block">
-<pre>
+                        <pre>
 import pandas as pd
 import lightgbm as lgb
 from sklearn.model_selection import train_test_split
@@ -403,7 +430,8 @@ test_data['EV'] = (test_data['pred_prob'] * test_data['odds']) - 1
     <footer class="bg-brand-primary text-white py-12 mt-12">
         <div class="max-w-7xl mx-auto px-4 text-center">
             <p class="text-sm opacity-70">
-                本ページは、過去の競馬予測に関する学術論文および技術記事（特に "Beating the Bookies with their Own Numbers", Kaunitz et al., 2017 等）の手法を<br>
+                本ページは、過去の競馬予測に関する学術論文および技術記事（特に "Beating the Bookies with their Own Numbers", Kaunitz et al., 2017
+                等）の手法を<br>
                 現代的な機械学習ライブラリ(LightGBM)に適用した場合の一般論として再構成したものです。<br>
                 実際の馬券購入は自己責任で行ってください。
             </p>
@@ -431,7 +459,7 @@ test_data['EV'] = (test_data['pred_prob'] * test_data['odds']) - 1
         }
 
         // --- 2. Chart Initialization ---
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             // Common Chart Options
             const commonOptions = {
                 responsive: true,
@@ -478,12 +506,12 @@ test_data['EV'] = (test_data['pred_prob'] * test_data['odds']) - 1
 
             // ROI Performance Chart (Line)
             const roiCtx = document.getElementById('roiChart').getContext('2d');
-            
+
             // Generate mock trend data
-            const labels = Array.from({length: 50}, (_, i) => `レース ${i*100}`);
-            const baseline = labels.map((_, i) => 100 * Math.pow(0.75, i/50)); // Decay by house edge
-            const favorites = labels.map((_, i) => 100 * Math.pow(0.85, i/50)); // Slightly better decay
-            
+            const labels = Array.from({ length: 50 }, (_, i) => `レース ${i * 100}`);
+            const baseline = labels.map((_, i) => 100 * Math.pow(0.75, i / 50)); // Decay by house edge
+            const favorites = labels.map((_, i) => 100 * Math.pow(0.85, i / 50)); // Slightly better decay
+
             // AI strategy: slightly noisy but upward trend
             let aiCapital = 100;
             const aiTrend = labels.map((_, i) => {
@@ -564,11 +592,11 @@ test_data['EV'] = (test_data['pred_prob'] * test_data['odds']) - 1
             // e.g. (0.25 * 5.0) - 1 = 1.25 - 1 = 0.25 (25% EV)
             const roi = (winProb * odds);
             const ev = roi - 1;
-            
+
             // Update EV Display
             const evPercentage = (roi * 100).toFixed(1);
             evDisplay.textContent = `${evPercentage}%`;
-            
+
             if (ev > 0) {
                 evDisplay.className = "text-3xl font-bold text-brand-success";
             } else {
@@ -578,7 +606,7 @@ test_data['EV'] = (test_data['pred_prob'] * test_data['odds']) - 1
             // Kelly Criterion Formula: f* = (bp - q) / b
             // where b = odds - 1, p = probability, q = 1 - p
             // Simplified: f = (p * (b + 1) - 1) / b  -> (p * odds - 1) / (odds - 1)
-            
+
             let kellyFraction = 0;
             if (ev > 0) {
                 const b = odds - 1;
@@ -593,7 +621,7 @@ test_data['EV'] = (test_data['pred_prob'] * test_data['odds']) - 1
             // Display
             kellyFractionDisplay.textContent = `${(finalFraction * 100).toFixed(2)}%`;
             betAmountDisplay.textContent = `¥${betAmount.toLocaleString()}`;
-            
+
             if (betAmount > 0) {
                 betAmountDisplay.className = "text-4xl font-bold text-brand-accent";
             } else {
@@ -612,4 +640,5 @@ test_data['EV'] = (test_data['pred_prob'] * test_data['odds']) - 1
 
     </script>
 </body>
+
 </html>

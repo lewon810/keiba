@@ -110,10 +110,16 @@ def evaluate():
     
     bet_amount = 100
     
+    # NDCG and MRR calculation
+    ndcg_at_1_list = []
+    ndcg_at_3_list = []
+    ndcg_at_5_list = []
+    mrr_list = []
+    
     for race_id, group in val_df.groupby('race_id'):
         total_races += 1
         
-        # Sort by predicted score
+        # Sort by predicted score (descending - higher is better)
         group = group.sort_values('score', ascending=False)
         pred_winner = group.iloc[0]
         
@@ -132,15 +138,55 @@ def evaluate():
             hits_3 += 1
             
         total_cost += bet_amount
+        
+        # Calculate NDCG (requires sklearn)
+        try:
+            from sklearn.metrics import ndcg_score
+            # Convert rank to relevance score (lower rank = higher relevance)
+            # For NDCG, relevance should be higher for better items
+            max_rank = group['rank'].max()
+            relevance = (max_rank - group['rank'] + 1).values
+            pred_scores = group['score'].values
+            
+            # NDCG requires 2D arrays
+            if len(relevance) > 0:
+                ndcg_1 = ndcg_score([relevance], [pred_scores], k=1)
+                ndcg_3 = ndcg_score([relevance], [pred_scores], k=3)
+                ndcg_5 = ndcg_score([relevance], [pred_scores], k=min(5, len(relevance)))
+                
+                ndcg_at_1_list.append(ndcg_1)
+                ndcg_at_3_list.append(ndcg_3)
+                ndcg_at_5_list.append(ndcg_5)
+        except ImportError:
+            pass  # Skip NDCG if sklearn not available
+        
+        # Calculate MRR (Mean Reciprocal Rank)
+        # Find the position of the actual winner in our prediction
+        actual_winner_id = group[group['rank'] == 1].index
+        if len(actual_winner_id) > 0:
+            winner_pos = group.index.get_loc(actual_winner_id[0]) + 1  # 1-indexed position
+            mrr_list.append(1.0 / winner_pos)
+        else:
+            mrr_list.append(0.0)
             
     acc_1 = hits_1 / total_races if total_races > 0 else 0
     acc_3 = hits_3 / total_races if total_races > 0 else 0
     roi = (total_return / total_cost) * 100 if total_cost > 0 else 0
     
+    mean_ndcg_1 = np.mean(ndcg_at_1_list) if ndcg_at_1_list else 0.0
+    mean_ndcg_3 = np.mean(ndcg_at_3_list) if ndcg_at_3_list else 0.0
+    mean_ndcg_5 = np.mean(ndcg_at_5_list) if ndcg_at_5_list else 0.0
+    mean_mrr = np.mean(mrr_list) if mrr_list else 0.0
+    
     print(f"\nResults (Validation Set - {total_races} races):")
     print(f"Accuracy (Hit Rate): {acc_1:.2%}")
     print(f"Accuracy (Top 3): {acc_3:.2%}")
     print(f"ROI (Recovery Rate): {roi:.2f}%")
+    print(f"\nRanking Metrics:")
+    print(f"NDCG@1: {mean_ndcg_1:.4f}")
+    print(f"NDCG@3: {mean_ndcg_3:.4f}")
+    print(f"NDCG@5: {mean_ndcg_5:.4f}")
+    print(f"MRR (Mean Reciprocal Rank): {mean_mrr:.4f}")
 
 if __name__ == "__main__":
     evaluate()

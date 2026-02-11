@@ -16,6 +16,7 @@ def predict(race_data, return_df=False, power=None):
     """
     Takes race data (list of dicts) and returns predictions using the trained model.
     If return_df is True, returns the pandas DataFrame with scores.
+    power: exponent for score calculation (P^power * Odds), defaults to settings.POWER_EXPONENT
     """
     if not race_data:
         return "No data to predict."
@@ -186,14 +187,20 @@ def predict(race_data, return_df=False, power=None):
             'course_type_win_rate', 'dist_cat_win_rate'
         ]
 
-        # LightGBM Multiclass returns (N, 4) probability matrix
-        pred_probs = model.predict(df[features])
+        # LambdaRank returns 1D score array (N,) - higher is better
+        pred_scores = model.predict(df[features])
         
-        # Extract Win Probability (Class 0)
-        if pred_probs.ndim > 1:
-            df['win_prob'] = pred_probs[:, 0]
+        # Use scores directly as win probability proxy
+        # Normalize to 0-1 range for better interpretability
+        if len(pred_scores) > 0:
+            min_score = pred_scores.min()
+            max_score = pred_scores.max()
+            if max_score > min_score:
+                df['win_prob'] = (pred_scores - min_score) / (max_score - min_score)
+            else:
+                df['win_prob'] = 0.5  # All same score
         else:
-            df['win_prob'] = pred_probs
+            df['win_prob'] = 0.0
 
         # Clean Odds for calculation
         def parse_odds(o):
