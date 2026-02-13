@@ -439,8 +439,24 @@ def transform(df, artifacts):
     Apply preprocessing using existing artifacts (Encoders, Maps).
     Used for Inference and Evaluation on new data.
     """
-    # Parse Date
-    df['date'] = pd.to_datetime(df['date'], format='%Y年%m月%d日', errors='coerce')
+    # Parse Date - handle both integer and string formats
+    if df['date'].dtype == 'int64' or df['date'].dtype == 'int32':
+        # If date is integer, extract date from race_id
+        def extract_date_from_race_id(rid):
+            try:
+                rid_str = str(rid)
+                if len(rid_str) >= 12:
+                    year = rid_str[0:4]
+                    month = rid_str[6:8]
+                    day = rid_str[8:10]
+                    return pd.to_datetime(f"{year}-{month}-{day}", errors='coerce')
+                return pd.NaT
+            except:
+                return pd.NaT
+        df['date'] = df['race_id'].apply(extract_date_from_race_id)
+    else:
+        # String format - parse normally
+        df['date'] = pd.to_datetime(df['date'], format='%Y年%m月%d日', errors='coerce')
     
     # Feature: Time (seconds)
     def parse_time(t_str):

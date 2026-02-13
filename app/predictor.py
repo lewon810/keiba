@@ -64,7 +64,8 @@ def predict(race_data, return_df=False, power=None):
                     df.at[i, 'lag1_last_3f'] = 0
                     df.at[i, 'interval'] = 365
         except Exception as e:
-            print(f"History load failed: {e}")
+            print(f"⚠️  History load failed: {e}")
+            print("⚠️  Using default feature values - prediction accuracy will be reduced.")
             df['lag1_rank'] = 99
             df['lag1_speed_index'] = 0
             df['lag1_last_3f'] = 0

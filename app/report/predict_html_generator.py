@@ -196,7 +196,14 @@ def generate_prediction_report(output_file="predict.html", power_min=None, power
     <body>
         <div class="container-fluid" style="max-width: 800px; margin: 0 auto;">
             <h1><span class="header-icon">🏇</span>Keiba AI Predictions</h1>
-            <p class="text-center text-muted" style="margin-bottom: 30px;">Generated at: {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>
+            <p class="text-center text-muted" style="margin-bottom: 10px;">Generated at: {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>
+            
+            <!-- Warning Banner for Missing Historical Data -->
+            <div class="alert alert-warning" role="alert" style="margin-bottom: 20px;">
+                <strong>⚠️  Note:</strong> Historical race data is not available in the CI/CD environment. 
+                Predictions are using default feature values, which may result in lower accuracy. 
+                For better predictions, historical data should be provided in <code>train/data/raw</code>.
+            </div>
     """
     
     if not grouped_data:

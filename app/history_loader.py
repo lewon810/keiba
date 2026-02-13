@@ -39,17 +39,49 @@ class HistoryLoader:
                 
         if dfs:
             self.df = pd.concat(dfs, ignore_index=True)
-            # Parse Date
-            self.df['date'] = pd.to_datetime(self.df['date'], format='%Y年%m月%d日', errors='coerce')
-            self.df = self.df.dropna(subset=['date'])
+            # Parse Date - handle both integer and string formats
+            # Integer format: 1, 2, 3... (just race sequence numbers - not usable)
+            # String format: "YYYY年MM月DD日" (actual dates)
+            if self.df['date'].dtype == 'int64' or self.df['date'].dtype == 'int32':
+                # If date is integer, it's not a real date - skip date filtering
+                # We'll sort by race_id instead
+                print("⚠️  Warning: Date column is integer type, not actual dates. Sorting by race_id.")
+                self.df = self.df.sort_values('race_id')
+                # Create a pseudo-date for compatibility (use race_id's date portion)
+                # race_id format: YYYYPPKKMMDDRR
+                # Extract YYYYMMDD from race_id
+                def extract_date_from_race_id(rid):
+                    try:
+                        rid_str = str(rid)
+                        if len(rid_str) >= 12:
+                            year = rid_str[0:4]
+                            month = rid_str[6:8]
+                            day = rid_str[8:10]
+                            return pd.to_datetime(f"{year}-{month}-{day}", errors='coerce')
+                        return pd.NaT
+                    except:
+                        return pd.NaT
+                self.df['date'] = self.df['race_id'].apply(extract_date_from_race_id)
+                self.df = self.df.dropna(subset=['date'])
+            else:
+                # String format - parse normally
+                self.df['date'] = pd.to_datetime(self.df['date'], format='%Y年%m月%d日', errors='coerce')
+                self.df = self.df.dropna(subset=['date'])
+                self.df = self.df.sort_values('date')
+            
             # Parse last_3f to numeric
-            self.df['last_3f'] = pd.to_numeric(self.df['last_3f'], errors='coerce').fillna(0)
-            self.df = self.df.sort_values('date') 
+            self.df['last_3f'] = pd.to_numeric(self.df['last_3f'], errors='coerce').fillna(0) 
         else:
             self.df = pd.DataFrame(columns=['horse_id', 'date', 'rank'])
             
         self.is_loaded = True
         print(f"History loaded: {len(self.df)} records.")
+        
+        # Warning if no historical data
+        if len(self.df) == 0:
+            print("⚠️  WARNING: No historical data found!")
+            print("⚠️  Predictions will use default values, resulting in lower accuracy.")
+            print(f"⚠️  Expected data location: {settings.RAW_DATA_DIR}")
 
     def get_last_race(self, horse_id, current_date_str=None):
         """
