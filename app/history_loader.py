@@ -31,7 +31,7 @@ class HistoryLoader:
                 # Plan B: Load Raw, Parse Date, Sort. Lag Rank is easy. Lag SI is hard without course stats.
                 # We will just use Rank for now as proof of concept.
                 
-                df = pd.read_csv(f, usecols=['horse_id', 'date', 'rank', 'time', 'race_id'])
+                df = pd.read_csv(f, usecols=['horse_id', 'date', 'rank', 'time', 'race_id', 'last_3f'])
                 dfs.append(df)
             except Exception as e:
                 # Columns might be missing if mixing old/new csvs
@@ -42,6 +42,8 @@ class HistoryLoader:
             # Parse Date
             self.df['date'] = pd.to_datetime(self.df['date'], format='%Y年%m月%d日', errors='coerce')
             self.df = self.df.dropna(subset=['date'])
+            # Parse last_3f to numeric
+            self.df['last_3f'] = pd.to_numeric(self.df['last_3f'], errors='coerce').fillna(0)
             self.df = self.df.sort_values('date') 
         else:
             self.df = pd.DataFrame(columns=['horse_id', 'date', 'rank'])
@@ -85,10 +87,17 @@ class HistoryLoader:
         except:
             rank = 99
             
+        # Parse last_3f
+        try:
+            last_3f = float(last_race.get('last_3f', 0))
+        except:
+            last_3f = 0.0
+            
         return {
             "lag1_rank": rank,
             "interval": interval,
-            "lag1_speed_index": 0 # Placeholder as we don't have stored SI in raw
+            "lag1_speed_index": 0, # Placeholder as we don't have stored SI in raw
+            "lag1_last_3f": last_3f
         }
 
 # Global instance

@@ -56,10 +56,12 @@ def predict(race_data, return_df=False, power=None):
                 if last_stats:
                     df.at[i, 'lag1_rank'] = last_stats['lag1_rank']
                     df.at[i, 'lag1_speed_index'] = last_stats['lag1_speed_index']
+                    df.at[i, 'lag1_last_3f'] = last_stats['lag1_last_3f']
                     df.at[i, 'interval'] = last_stats['interval']
                 else:
                     df.at[i, 'lag1_rank'] = 99
                     df.at[i, 'lag1_speed_index'] = 0
+                    df.at[i, 'lag1_last_3f'] = 0
                     df.at[i, 'interval'] = 365
         except Exception as e:
             print(f"History load failed: {e}")
