@@ -1,7 +1,6 @@
-# 🏇 Keiba Prediction App (競馬予想アプリ)
+# 🏇 Keiba Prediction System (競馬予想システム)
 
-Netkeibaの出馬表URLを入力として、機械学習モデルに基づいた高精度な予想を行うPythonデスクトップアプリケーションです。
-LightGBMを用いた多クラス分類モデルにより、単なる的中率だけでなく回収率を意識した「スコア」を算出します。
+GitHub Actionsを活用した自動競馬予想システムです。LightGBMを用いた機械学習モデルにより、単なる的中率だけでなく回収率を意識した「スコア」を算出し、予測結果をGitHub Pagesで公開します。
 https://lewon810.github.io/keiba/
 
 ## ✨ 特徴
@@ -23,12 +22,7 @@ https://lewon810.github.io/keiba/
     - **Range Evaluation**: 異なる指数（Power）やレース番号を範囲指定して一括検証。
     - **HTML Reports**: グラフや詳細な的中履歴を含むレポートを自動生成。
 
-- **Multi-Mode Prediction**:
-    - **Search Mode**: 日付・競馬場を指定してレースを検索・予想。
-    - **Direct URL**: 出馬表URLを直接入力して予想。
-
-- **モダンなGUI**: Windows 11ライクな洗練されたデザイン (`customtkinter`)。
-- **学習パイプライン**: 過去10年分（2016-2025）のデータ学習に対応。
+- **自動化パイプライン**: 過去10年分（2016-2025）のデータ学習に対応。
 
 - **CI/CD Integration**:
     - **GitHub Pages**: 予測結果および検証レポートを自動デプロイ。
@@ -36,9 +30,9 @@ https://lewon810.github.io/keiba/
 
 ## 🛠️ 必要要件
 
-- Windows OS (GUI) / Linux (CI)
 - Python 3.10+
 - Internet Connection
+- GitHub Account (GitHub Actions / Pages使用)
 
 ## 🚀 インストール方法
 
@@ -61,45 +55,55 @@ https://lewon810.github.io/keiba/
 
 ## 🖥️ 使い方
 
-### 1. アプリケーションで予想する (UI)
-```bash
-python -m app.main
-```
-- **Search Mode**: 日にちを指定し「Search & Predict」を押すと、その日の全レースを予想します。
-- **Direct URL**: NetkeibaのURLを直接貼り付けて予想します。
+### 1. GitHub Actionsで自動予測
 
-**CLI - Batch Prediction & Reports:**
+このシステムは主にGitHub Actionsで動作します：
+
+- **Predict Workflow** (`predict.yml`): 3時間ごとに自動実行され、今週のレースを予測
+- **Evaluate Workflow** (`evaluate.yml`): 毎週月曜日にモデルの精度を評価
+- **Deploy Workflow** (`deploy.yml`): 毎日予測結果と評価レポートをGitHub Pagesにデプロイ
+
+**手動実行**: リポジトリの「Actions」タブから各ワークフローを手動でトリガー可能です。
+
+### 2. ローカルで予測レポートを生成
+
 ```bash
 # 特定の日付の予想レポート(HTML)を生成
 python -m app.report.predict_html_generator --date 20250125
 ```
 
-### 2. モデル精度を検証する (Evaluation)
-`train/evaluate_settings.yml` で条件を設定し、評価用HTMLレポートを生成します。
+### 3. モデル精度を検証する (Evaluation)
 
 ```powershell
 # 指定期間（例:2025年）のデータで検証レポートを生成
 python -m train.report.evaluate_html_generator --start 2025 --end 2025
 ```
 
-### 3. データ収集とモデル学習
+### 4. データ収集とモデル学習
 
-#### Step 1: レース結果の収集
+#### GitHub Actionsで自動実行（推奨）
+
+- **Scrape Race Results** (`scrape-race-results.yml`): レース結果を年単位で収集
+- **Scrape Horse Profiles** (`scrape-horse.yml`): 血統情報を自動収集
+
+これらのワークフローは「Actions」タブから手動で実行できます。
+
+#### ローカルで実行する場合
+
+**Step 1: レース結果の収集**
 ```powershell
 python -m train.scraper_bulk --start 2016 --end 2025
 ```
 ※ `train/data/raw/` にCSVファイルが保存されます。
 
-#### Step 2: 血統情報の収集 (Pedigree)
-GitHub Actionsで実行するか、ローカルで実行します。
+**Step 2: 血統情報の収集**
 ```powershell
 python -m train.scraper_horse
 ```
 ※ `train/data/raw/horse_profiles.csv` に保存されます。
 
-#### Step 3: モデルの学習
+**Step 3: モデルの学習**
 ```powershell
-# 自動的にrawデータを読み込み、前処理・学習・保存を行います
 python -m train.train
 ```
 ※ 学習済みモデルは `train/models/lgbm_ranker_v2.pkl` に保存されます。
@@ -108,20 +112,25 @@ python -m train.train
 
 ```
 keiba/
+├── .github/workflows/    # GitHub Actions ワークフロー
+│   ├── predict.yml       # 予測実行（3時間ごと）
+│   ├── evaluate.yml      # モデル評価（週次）
+│   ├── deploy.yml        # GitHub Pagesデプロイ（日次）
+│   ├── scrape-race-results.yml  # レース結果収集
+│   └── scrape-horse.yml  # 血統情報収集
 ├── app/                  # 予測・推論レイヤー
-│   ├── main.py           # GUIアプリケーション
-│   ├── scraper.py        # スクレイパー (Search機能含む)
+│   ├── scraper.py        # スクレイパー (レース検索機能)
 │   ├── predictor.py      # 推論エンジン (LightGBM)
+│   ├── history_loader.py # 履歴データローダー
 │   └── report/           # 予測レポート生成
 ├── train/                # 学習パイプライン
 │   ├── scraper_bulk.py   # レース結果収集スクレイパー
-│   ├── scraper_horse.py  # 血統情報収集スクレイパー [NEW]
-│   ├── preprocess.py     # 特徴量エンジニアリング (血統統合済み)
+│   ├── scraper_horse.py  # 血統情報収集スクレイパー
+│   ├── preprocess.py     # 特徴量エンジニアリング
 │   ├── train.py          # モデル学習
-│   ├── evaluate.py       # 検証エンジン
-│   ├── evaluate_settings.yml # 検証用設定ファイル
 │   └── report/           # 評価レポート生成
-├── .github/workflows/    # CI/CD設定 (Scraping, Deploy)
+├── deploy/               # デプロイスクリプト
+│   └── index_generator.py # GitHub Pagesインデックス生成
 ├── data/                 # 学習データ・モデル (Git管理下)
 └── requirements.txt      
 ```

@@ -7,7 +7,7 @@ from collections import defaultdict
 # Add project root
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from app import scraper, predictor
+from app import scraper, predictor, history_loader
 from train import settings
 
 SEX_MAP = {
@@ -31,6 +31,11 @@ PLACE_MAP = {
 
 def generate_prediction_report(output_file="predict.html", power_min=None, power_max=None):
     print("Generating Prediction Report (Tabbed View)...")
+    
+    # Load historical data to check availability
+    history_loader.loader.load()
+    has_historical_data = len(history_loader.loader.df) > 0
+    print(f"Historical data available: {has_historical_data} ({len(history_loader.loader.df)} records)")
     
     # Defaults
     # User requested fixed default power 4, but let's keep args support just in case,
@@ -197,13 +202,27 @@ def generate_prediction_report(output_file="predict.html", power_min=None, power
         <div class="container-fluid" style="max-width: 800px; margin: 0 auto;">
             <h1><span class="header-icon">🏇</span>Keiba AI Predictions</h1>
             <p class="text-center text-muted" style="margin-bottom: 10px;">Generated at: {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>
-            
+    """
+    
+    # Conditionally add warning banner if historical data is not available
+    if not has_historical_data:
+        html_content += """
             <!-- Warning Banner for Missing Historical Data -->
             <div class="alert alert-warning" role="alert" style="margin-bottom: 20px;">
                 <strong>⚠️  Note:</strong> Historical race data is not available in the CI/CD environment. 
                 Predictions are using default feature values, which may result in lower accuracy. 
                 For better predictions, historical data should be provided in <code>train/data/raw</code>.
             </div>
+        """
+    else:
+        html_content += f"""
+            <!-- Historical Data Status -->
+            <div class="alert alert-info" role="alert" style="margin-bottom: 20px;">
+                <strong>✓ Info:</strong> Using historical race data ({len(history_loader.loader.df):,} records) for enhanced predictions.
+            </div>
+        """
+    
+    html_content += """
     """
     
     if not grouped_data:

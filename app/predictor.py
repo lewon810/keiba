@@ -202,15 +202,14 @@ def predict(race_data, return_df=False, power=None):
         # LambdaRank returns 1D score array (N,) - higher is better
         pred_scores = model.predict(df[features])
         
-        # Use scores directly as win probability proxy
-        # Normalize to 0-1 range for better interpretability
+        # Convert LambdaRank scores to probabilities using softmax
+        # This prevents the top horse from always being 100% and creates a realistic probability distribution
+        import numpy as np
+        
         if len(pred_scores) > 0:
-            min_score = pred_scores.min()
-            max_score = pred_scores.max()
-            if max_score > min_score:
-                df['win_prob'] = (pred_scores - min_score) / (max_score - min_score)
-            else:
-                df['win_prob'] = 0.5  # All same score
+            # Softmax transformation for numerical stability
+            exp_scores = np.exp(pred_scores - pred_scores.max())
+            df['win_prob'] = exp_scores / exp_scores.sum()
         else:
             df['win_prob'] = 0.0
 
