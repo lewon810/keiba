@@ -189,11 +189,19 @@ def generate_report(start_year, end_year, output_file="evaluate.html", power_min
         all_power_results[exponent] = pd.DataFrame(summary_data)
 
     # C. Generate Report
+    # 期間表示用の文字列を構築
+    if start_month and end_month:
+        eval_period = f"{start_year}/{start_month:02d} - {end_year}/{end_month:02d}"
+        title_period = f"{start_year}/{start_month:02d}-{end_year}/{end_month:02d}"
+    else:
+        eval_period = f"{start_year} - {end_year}"
+        title_period = f"{start_year}-{end_year}"
+    
     html_content = f"""
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Evaluation Report ({start_year}-{end_year})</title>
+        <title>Evaluation Report ({title_period})</title>
         <style>
             body {{ font-family: sans-serif; margin: 20px; }}
             table {{ border-collapse: collapse; width: 100%; margin-bottom: 30px; }}
@@ -207,7 +215,7 @@ def generate_report(start_year, end_year, output_file="evaluate.html", power_min
     </head>
     <body>
         <h1>Evaluation Report (Power Comparison)</h1>
-        <p><strong>Period:</strong> {start_year} - {end_year}</p>
+        <p><strong>Evaluation Period:</strong> {eval_period}</p>
         <p><strong>Powers Tested:</strong> {power_values}</p>
         <p><strong>Generated:</strong> {pd.Timestamp.now()}</p>
     """
