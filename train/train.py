@@ -7,11 +7,14 @@ from . import preprocess
 
 import argparse
 
-def train_model(start_year, end_year):
-    print(f"--- Training Mode: {start_year}-{end_year} ---")
+def train_model(start_year, end_year, start_month=None, end_month=None):
+    if start_month and end_month:
+        print(f"--- Training Mode: {start_year}/{start_month}-{end_year}/{end_month} ---")
+    else:
+        print(f"--- Training Mode: {start_year}-{end_year} ---")
     
     # 1. Load Data
-    raw_df = preprocess.load_data(start_year=start_year, end_year=end_year)
+    raw_df = preprocess.load_data(start_year=start_year, end_year=end_year, start_month=start_month, end_month=end_month)
     if raw_df.empty:
         print("No training data found.")
         return
@@ -110,6 +113,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--start", type=int, default=2016)
     parser.add_argument("--end", type=int, default=2024)
+    parser.add_argument("--start_month", type=int, default=None)
+    parser.add_argument("--end_month", type=int, default=None)
     args = parser.parse_args()
     
-    train_model(args.start, args.end)
+    train_model(args.start, args.end, args.start_month, args.end_month)

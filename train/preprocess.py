@@ -3,8 +3,8 @@ import numpy as np
 import os
 from . import settings
 
-def load_data(start_year=None, end_year=None):
-    """Loads all result CSVs from raw data directory, optionally filtering by year."""
+def load_data(start_year=None, end_year=None, start_month=None, end_month=None):
+    """Loads all result CSVs from raw data directory, optionally filtering by year and month."""
     # Ensure we only load results_*.csv files, excluding things like horse_profiles.csv
     files = [f for f in os.listdir(settings.RAW_DATA_DIR) if f.startswith('results_') and f.endswith('.csv')]
     dfs = []
@@ -54,6 +54,38 @@ def load_data(start_year=None, end_year=None):
         return pd.DataFrame()
         
     df = pd.concat(dfs, ignore_index=True)
+    
+    # Month filtering if specified
+    if start_month is not None or end_month is not None:
+        # Parse date from race_id to extract month
+        # race_id format: YYYYMMDDXXXX (year=0:4, month=4:6, day=6:8)
+        def extract_month_from_race_id(rid):
+            try:
+                rid_str = str(rid)
+                if len(rid_str) >= 6:
+                    month = int(rid_str[4:6])
+                    return month
+                return None
+            except:
+                return None
+        
+        df['_temp_month'] = df['race_id'].apply(extract_month_from_race_id)
+        
+        # Filter by month range
+        if start_month is not None and end_month is not None:
+            initial_len = len(df)
+            df = df[(df['_temp_month'] >= start_month) & (df['_temp_month'] <= end_month)]
+            print(f"Filtered by month {start_month}-{end_month}: {initial_len} -> {len(df)} rows")
+        elif start_month is not None:
+            initial_len = len(df)
+            df = df[df['_temp_month'] >= start_month]
+            print(f"Filtered by month >= {start_month}: {initial_len} -> {len(df)} rows")
+        elif end_month is not None:
+            initial_len = len(df)
+            df = df[df['_temp_month'] <= end_month]
+            print(f"Filtered by month <= {end_month}: {initial_len} -> {len(df)} rows")
+        
+        df = df.drop(columns=['_temp_month'])
     
     # Drop duplicates
     initial_len = len(df)

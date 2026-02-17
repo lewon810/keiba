@@ -7,14 +7,26 @@ on:
         description: 'Training Start Year'
         required: true
         default: '2016'
+      train_start_month:
+        description: 'Training Start Month (1-12)'
+        required: false
+        default: '1'
       train_end:
         description: 'Training End Year'
         required: true
-        default: '2024'
+        default: '2025'
+      train_end_month:
+        description: 'Training End Month (1-12)'
+        required: false
+        default: '10'
       eval_year:
         description: 'Evaluation Year'
         required: true
         default: '2025'
+      eval_month:
+        description: 'Evaluation Month (1-12)'
+        required: false
+        default: '11'
       power_min:
         description: 'Min Score Exponent (Power)'
         required: true
@@ -31,10 +43,6 @@ on:
         description: 'Max Race No (e.g. 12)'
         required: false
         default: '12'
-  schedule:
-    # Run weekly or so? User didn't specify schedule prefernce for this one.
-    - cron: '0 0 * * 1' # Every Monday
-
 jobs:
   evaluate:
     runs-on: ubuntu-latest
@@ -62,8 +70,10 @@ jobs:
         # Use inputs if available (workflow_dispatch), otherwise defaults for schedule
         START=${{ inputs.train_start || '2016' }}
         END=${{ inputs.train_end || '2024' }}
-        echo "Training from $START to $END"
-        python -m train.train --start $START --end $END
+        START_MONTH=${{ inputs.train_start_month || '1' }}
+        END_MONTH=${{ inputs.train_end_month || '10' }}
+        echo "Training from $START/$START_MONTH to $END/$END_MONTH"
+        python -m train.train --start $START --end $END --start_month $START_MONTH --end_month $END_MONTH
 
     - name: Generate Evaluation Report
       run: |
@@ -71,12 +81,13 @@ jobs:
         # Ensure report dir exists
         mkdir -p train/report
         EVAL_YEAR=${{ inputs.eval_year || '2025' }}
+        EVAL_MONTH=${{ inputs.eval_month || '11' }}
         P_MIN=${{ inputs.power_min || '3' }}
         P_MAX=${{ inputs.power_max || '5' }}
         R_MIN=${{ inputs.race_min || '1' }}
         R_MAX=${{ inputs.race_max || '12' }}
-        echo "Evaluating on $EVAL_YEAR | Power $P_MIN-$P_MAX | Race $R_MIN-$R_MAX"
-        python -m train.report.evaluate_html_generator --start $EVAL_YEAR --end $EVAL_YEAR --output evaluate.html --power_min $P_MIN --power_max $P_MAX --race_min $R_MIN --race_max $R_MAX
+        echo "Evaluating on $EVAL_YEAR/$EVAL_MONTH | Power $P_MIN-$P_MAX | Race $R_MIN-$R_MAX"
+        python -m train.report.evaluate_html_generator --start $EVAL_YEAR --end $EVAL_YEAR --start_month $EVAL_MONTH --end_month $EVAL_MONTH --output evaluate.html --power_min $P_MIN --power_max $P_MAX --race_min $R_MIN --race_max $R_MAX
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4

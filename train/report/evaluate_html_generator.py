@@ -14,8 +14,11 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 from train import evaluate
 from train import settings
 
-def generate_report(start_year, end_year, output_file="evaluate.html", power_min=None, power_max=None, race_min=None, race_max=None):
-    print(f"Generating Evaluation Report for {start_year}-{end_year}...")
+def generate_report(start_year, end_year, output_file="evaluate.html", power_min=None, power_max=None, race_min=None, race_max=None, start_month=None, end_month=None):
+    if start_month and end_month:
+        print(f"Generating Evaluation Report for {start_year}/{start_month}-{end_year}/{end_month}...")
+    else:
+        print(f"Generating Evaluation Report for {start_year}-{end_year}...")
     
     # ... (Defaults for power skipped in this diff, assuming context handles it or I include it)
     # Re-stating defaults to be safe with replace
@@ -54,9 +57,8 @@ def generate_report(start_year, end_year, output_file="evaluate.html", power_min
     artifacts = joblib.load(os.path.join(settings.MODEL_DIR, 'encoders.pkl'))
     
     # Load Data
-    # Load Data
     print("Loading Data...")
-    raw_df = preprocess.load_data(start_year=start_year, end_year=end_year)
+    raw_df = preprocess.load_data(start_year=start_year, end_year=end_year, start_month=start_month, end_month=end_month)
     
     if raw_df.empty:
         print("No data found, skipping.")
@@ -315,7 +317,9 @@ if __name__ == "__main__":
     parser.add_argument("--power_max", type=int, default=None, help="Max Power")
     parser.add_argument("--race_min", type=int, default=None, help="Min Race No")
     parser.add_argument("--race_max", type=int, default=None, help="Max Race No")
+    parser.add_argument("--start_month", type=int, default=None, help="Start Month (1-12)")
+    parser.add_argument("--end_month", type=int, default=None, help="End Month (1-12)")
     args = parser.parse_args()
     
-    generate_report(args.start, args.end, args.output, args.power_min, args.power_max, args.race_min, args.race_max)
+    generate_report(args.start, args.end, args.output, args.power_min, args.power_max, args.race_min, args.race_max, args.start_month, args.end_month)
 
