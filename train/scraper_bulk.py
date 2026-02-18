@@ -109,16 +109,28 @@ def scrape_race_data(race_id):
         "distance": 0,
         "weather": "",
         "condition": "",
-        "date": ""
+        "year": 0,
+        "month": 0,
+        "day": 0
     }
     
     try:
         racedata = soup.select_one("dl.racedata")
         if racedata:
-            # Date
+            # 日付の抽出: "2016年1月5日" → year=2016, month=1, day=5
             dt_text = racedata.select_one("dt").get_text(strip=True) if racedata.select_one("dt") else ""
-            # Original: 2016年1月5日
-            race_info["date"] = dt_text.split(" ")[0]
+            date_match = re.match(r'(\d{4})年(\d{1,2})月(\d{1,2})日', dt_text)
+            if date_match:
+                race_info["year"] = int(date_match.group(1))
+                race_info["month"] = int(date_match.group(2))
+                race_info["day"] = int(date_match.group(3))
+            else:
+                # フォールバック: race_id (YYYYCCRRDDRR) から抽出
+                rid_str = str(race_id)
+                if len(rid_str) >= 12:
+                    race_info["year"] = int(rid_str[0:4])
+                    race_info["month"] = int(rid_str[6:8])
+                    race_info["day"] = int(rid_str[8:10])
             
             # Conditions
             dd_text = racedata.select_one("dd").get_text(strip=True) if racedata.select_one("dd") else ""
@@ -289,7 +301,8 @@ def _save_buffer(data, path):
     
     # 過去のフォーマットに合わせてカラム順序を強制
     desired_order = [
-         "race_id", "course_type", "distance", "weather", "condition", "date", 
+         "race_id", "course_type", "distance", "weather", "condition",
+         "year", "month", "day",
          "rank", "waku", "umaban", "horse_name", "horse_id", 
          "jockey", "jockey_id", "trainer", "trainer_id", 
          "horse_weight", "weight_diff", "time", 

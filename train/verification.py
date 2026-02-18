@@ -19,7 +19,11 @@ def test_preprocess():
             return
             
         print(f"Loaded {len(raw_df)} rows.")
-        print(f"Sample Date (Raw/Merged): {raw_df['date'].dropna().head().tolist()}")
+        # year, month, day カラムの確認
+        if 'year' in raw_df.columns:
+            print(f"Sample Date (year/month/day): {raw_df[['year', 'month', 'day']].head().values.tolist()}")
+        elif 'date' in raw_df.columns:
+            print(f"Sample Date (Raw/Merged): {raw_df['date'].dropna().head().tolist()}")
         
         # 2. Run Preprocess
         df, artifacts = preprocess.preprocess(raw_df)
@@ -40,10 +44,6 @@ def test_preprocess():
             print("WARNING: All dates are NaT!")
             
         print("Verifying 'horse_id' column...")
-        # Check if it was processed to int (LabelEncoder) or kept as string?
-        # In preprocess, we label encode it.
-        # But we should check if load_data handled it as string first.
-        # We can check raw_df for string ID
         assert pd.api.types.is_string_dtype(raw_df['horse_id']), f"Raw horse_id is not string: {raw_df['horse_id'].dtype}"
         
         print("Verification PASSED.")
@@ -52,6 +52,7 @@ def test_preprocess():
         print(f"Verification FAILED: {e}")
         import traceback
         traceback.print_exc()
+
 
 if __name__ == "__main__":
     test_preprocess()

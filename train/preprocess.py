@@ -144,8 +144,9 @@ def preprocess(df):
     df['rank_class'] = np.select(conditions, choices, default=3)
     
     # 日付のパース
-    # フォーマット: YYYY年%m月%d日
-    df['date'] = pd.to_datetime(df['date'], format='%Y年%m月%d日', errors='coerce')
+    # year, month, day カラムから datetime を構築
+    df['date'] = pd.to_datetime(df[['year', 'month', 'day']].rename(
+        columns={'year': 'year', 'month': 'month', 'day': 'day'}), errors='coerce')
     
     # Feature: Time (seconds)
     # Format 1:34.5 -> 94.5
@@ -471,24 +472,28 @@ def transform(df, artifacts):
     Apply preprocessing using existing artifacts (Encoders, Maps).
     Used for Inference and Evaluation on new data.
     """
-    # Parse Date - handle both integer and string formats
-    if df['date'].dtype == 'int64' or df['date'].dtype == 'int32':
-        # If date is integer, extract date from race_id
-        def extract_date_from_race_id(rid):
-            try:
-                rid_str = str(rid)
-                if len(rid_str) >= 12:
-                    year = rid_str[0:4]
-                    month = rid_str[6:8]
-                    day = rid_str[8:10]
-                    return pd.to_datetime(f"{year}-{month}-{day}", errors='coerce')
-                return pd.NaT
-            except:
-                return pd.NaT
-        df['date'] = df['race_id'].apply(extract_date_from_race_id)
+    # 日付のパース: year, month, day カラムから datetime を構築
+    if 'year' in df.columns and 'month' in df.columns and 'day' in df.columns:
+        df['date'] = pd.to_datetime(df[['year', 'month', 'day']], errors='coerce')
+    elif 'date' in df.columns:
+        # レガシーフォールバック: 旧フォーマット対応
+        if df['date'].dtype == 'int64' or df['date'].dtype == 'int32':
+            def extract_date_from_race_id(rid):
+                try:
+                    rid_str = str(rid)
+                    if len(rid_str) >= 12:
+                        year = rid_str[0:4]
+                        month = rid_str[6:8]
+                        day = rid_str[8:10]
+                        return pd.to_datetime(f"{year}-{month}-{day}", errors='coerce')
+                    return pd.NaT
+                except:
+                    return pd.NaT
+            df['date'] = df['race_id'].apply(extract_date_from_race_id)
+        else:
+            df['date'] = pd.to_datetime(df['date'], format='%Y年%m月%d日', errors='coerce')
     else:
-        # String format - parse normally
-        df['date'] = pd.to_datetime(df['date'], format='%Y年%m月%d日', errors='coerce')
+        df['date'] = pd.NaT
     
     # Feature: Time (seconds)
     def parse_time(t_str):
