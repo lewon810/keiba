@@ -10,6 +10,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  actions: read
 
 jobs:
   predict:
@@ -44,3 +45,13 @@ jobs:
       with:
         name: prediction-artifact
         path: predict.html
+
+  # predict完了後にGitHub Pagesへ自動デプロイ
+  deploy:
+    needs: predict
+    uses: ./.github/workflows/deploy.yml
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+      actions: read
