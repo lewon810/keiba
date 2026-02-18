@@ -38,8 +38,8 @@ def load_data(start_year=None, end_year=None, start_month=None, end_month=None):
     for f in target_files:
         path = os.path.join(settings.RAW_DATA_DIR, f)
         try:
-            # Dtype optimized to prevent warnings
-            df = pd.read_csv(path, dtype={'horse_id': str, 'jockey_id': str, 'trainer_id': str})
+            # Dtype optimized to prevent warnings - race_id must be str for month extraction
+            df = pd.read_csv(path, dtype={'race_id': str, 'horse_id': str, 'jockey_id': str, 'trainer_id': str})
             # Drop invalid dates if any
             # もし日付列が存在する場合、数値型への変換や修正が必要な場合がありますが、
             # 基本的には後続の処理で上書きまたはパースされます
