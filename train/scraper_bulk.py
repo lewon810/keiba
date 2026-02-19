@@ -117,9 +117,10 @@ def scrape_race_data(race_id):
     try:
         racedata = soup.select_one("dl.racedata")
         if racedata:
-            # 日付の抽出: "2016年1月5日" → year=2016, month=1, day=5
-            dt_text = racedata.select_one("dt").get_text(strip=True) if racedata.select_one("dt") else ""
-            date_match = re.match(r'(\d{4})年(\d{1,2})月(\d{1,2})日', dt_text)
+            # 日付の抽出: p.smalltxt から "2026年01月31日 1回東京1日目..." を取得
+            smalltxt = soup.select_one("p.smalltxt")
+            smalltxt_text = smalltxt.get_text(strip=True) if smalltxt else ""
+            date_match = re.search(r'(\d{4})年(\d{1,2})月(\d{1,2})日', smalltxt_text)
             if date_match:
                 race_info["year"] = int(date_match.group(1))
                 race_info["month"] = int(date_match.group(2))
@@ -132,20 +133,21 @@ def scrape_race_data(race_id):
                     race_info["month"] = int(rid_str[6:8])
                     race_info["day"] = int(rid_str[8:10])
             
-            # Conditions
-            dd_text = racedata.select_one("dd").get_text(strip=True) if racedata.select_one("dd") else ""
-            # e.g. "芝右1600m / 天候 : 晴 / 芝 : 良 / 発走 : 09:50"
+            # Conditions: dd内のspan要素からコース/天候/馬場情報を取得
+            # 構造: dd > p > diary_snap_cut > span
+            span = racedata.select_one("dd p span")
+            dd_text = span.get_text(strip=True) if span else ""
+            # e.g. "ダ左1400m / 天候 : 晴 / ダート : 良 / 発走 : 10:05"
             
             parts = dd_text.split("/")
             if len(parts) >= 1:
                 # Part 0: Course/Dist e.g. "芝右1600m" or "ダ右1800m"
                 dist_str = parts[0].strip()
-                if "芝" in dist_str: race_info["course_type"] = "turb"
+                if "芝" in dist_str: race_info["course_type"] = "turf"
                 elif "ダ" in dist_str: race_info["course_type"] = "dirt"
                 elif "障" in dist_str: race_info["course_type"] = "steeple"
                 
                 # Extract number
-                import re
                 dist_match = re.search(r'\d+', dist_str)
                 if dist_match:
                     race_info["distance"] = int(dist_match.group())
@@ -200,7 +202,6 @@ def scrape_race_data(race_id):
             if len(cols) > 14:
                 hw_text = cols[14].get_text(strip=True)
                 # Parse 484(+2)
-                import re
                 match = re.match(r"(\d+)\(([-+]?\d+)\)", hw_text)
                 if match:
                     horse_weight = match.group(1)
