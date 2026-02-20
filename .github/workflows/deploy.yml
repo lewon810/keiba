@@ -2,6 +2,12 @@ name: Deploy to Pages
 
 on:
   workflow_call:
+    inputs:
+      source:
+        description: 'Caller workflow (evaluate/predict)'
+        required: false
+        type: string
+        default: ''
 
 jobs:
   deploy:
@@ -21,18 +27,37 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: Download Prediction Artifact
+    # 同一runからprediction-artifactをダウンロード（predictから呼ばれた場合）
+    - name: Download Prediction Artifact (same run)
+      if: inputs.source == 'predict'
+      uses: actions/download-artifact@v4
+      with:
+        name: prediction-artifact
+        path: public
+
+    # 過去runからprediction-artifactをダウンロード（predictから呼ばれていない場合）
+    - name: Download Prediction Artifact (previous run)
+      if: inputs.source != 'predict'
       uses: dawidd6/action-download-artifact@v3
       with:
         workflow: predict.yml
         name: prediction-artifact
         path: public
         if_no_artifact_found: warn
-        check_artifacts:  true 
-        search_artifacts: true 
-        # Optional: ensure we get the latest successful run
+        check_artifacts:  true
+        search_artifacts: true
 
-    - name: Download Evaluation Artifact
+    # 同一runからevaluation-artifactをダウンロード（evaluateから呼ばれた場合）
+    - name: Download Evaluation Artifact (same run)
+      if: inputs.source == 'evaluate'
+      uses: actions/download-artifact@v4
+      with:
+        name: evaluation-artifact
+        path: public
+
+    # 過去runからevaluation-artifactをダウンロード（evaluateから呼ばれていない場合）
+    - name: Download Evaluation Artifact (previous run)
+      if: inputs.source != 'evaluate'
       uses: dawidd6/action-download-artifact@v3
       with:
         workflow: evaluate.yml

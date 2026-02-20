@@ -105,6 +105,8 @@ jobs:
   deploy:
     needs: evaluate
     uses: ./.github/workflows/deploy.yml
+    with:
+      source: evaluate
     permissions:
       contents: read
       pages: write

@@ -50,6 +50,8 @@ jobs:
   deploy:
     needs: predict
     uses: ./.github/workflows/deploy.yml
+    with:
+      source: predict
     permissions:
       contents: read
       pages: write
