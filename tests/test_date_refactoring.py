@@ -228,5 +228,76 @@ class TestScraperBulkDateExtraction:
         assert '"date": ""' not in source, "scrape_race_data にまだ旧 'date' キーが残っています"
 
 
+
+class TestLoadDataMonthFiltering:
+    """preprocess.load_data() の月フィルタリングテスト"""
+    
+    def test_month_filter_uses_csv_column_not_race_id(self):
+        """月フィルタが race_id[4:6] (競馬場コード) ではなく CSV の month カラムを使うこと"""
+        import tempfile
+        import shutil
+        from train import settings
+        
+        # テスト用の一時ディレクトリを作成
+        tmp_dir = tempfile.mkdtemp()
+        original_raw_dir = settings.RAW_DATA_DIR
+        
+        try:
+            # テスト用CSVを作成: 9月データで複数の競馬場コード (01, 05, 09)
+            test_data = pd.DataFrame({
+                'race_id': [
+                    '202501030901',  # 競馬場01(札幌), 月ではない
+                    '202505040902',  # 競馬場05(東京)
+                    '202509050903',  # 競馬場09(阪神)
+                ],
+                'course_type': ['turf', 'dirt', 'turf'],
+                'distance': [1600, 1800, 2000],
+                'weather': ['sunny', 'sunny', 'cloudy'],
+                'condition': ['good', 'good', 'heavy'],
+                'year': [2025, 2025, 2025],
+                'month': [9, 9, 9],  # 全て9月
+                'day': [1, 7, 14],
+                'rank': [1, 2, 3],
+                'waku': [1, 2, 3],
+                'umaban': [1, 2, 3],
+                'horse_name': ['HorseA', 'HorseB', 'HorseC'],
+                'horse_id': ['2020100001', '2020100002', '2020100003'],
+                'jockey': ['J1', 'J2', 'J3'],
+                'jockey_id': ['05001', '05002', '05003'],
+                'trainer': ['T1', 'T2', 'T3'],
+                'trainer_id': ['01001', '01002', '01003'],
+                'horse_weight': [480, 460, 500],
+                'weight_diff': [0, -2, 4],
+                'time': ['1:34.5', '1:35.0', '2:01.0'],
+                'passing': ['3-3-2-1', '5-5-4-3', '2-2-1-1'],
+                'last_3f': ['35.0', '36.0', '35.5'],
+                'odds': [3.5, 10.0, 5.0],
+                'popularity': [1, 3, 2]
+            })
+            
+            test_csv_path = os.path.join(tmp_dir, 'results_2025.csv')
+            test_data.to_csv(test_csv_path, index=False, encoding='utf-8')
+            
+            # RAW_DATA_DIR を一時的に差し替え
+            settings.RAW_DATA_DIR = tmp_dir
+            
+            from train.preprocess import load_data
+            result = load_data(start_year=2025, end_year=2025, start_month=9, end_month=9)
+            
+            # 全3行が残るべき（以前は阪神の1行のみだった）
+            assert len(result) == 3, f"9月データは3行残るべき (実際: {len(result)})"
+            
+            # 競馬場コードの確認: 01, 05, 09 全て含まれること
+            place_codes = result['race_id'].astype(str).str[4:6].unique()
+            assert '01' in place_codes, "札幌(01)のデータが欠落"
+            assert '05' in place_codes, "東京(05)のデータが欠落"
+            assert '09' in place_codes, "阪神(09)のデータが欠落"
+            
+        finally:
+            settings.RAW_DATA_DIR = original_raw_dir
+            shutil.rmtree(tmp_dir)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+

@@ -57,19 +57,14 @@ def load_data(start_year=None, end_year=None, start_month=None, end_month=None):
     
     # Month filtering if specified
     if start_month is not None or end_month is not None:
-        # Parse date from race_id to extract month
-        # race_id format: YYYYMMDDXXXX (year=0:4, month=4:6, day=6:8)
-        def extract_month_from_race_id(rid):
-            try:
-                rid_str = str(rid)
-                if len(rid_str) >= 6:
-                    month = int(rid_str[4:6])
-                    return month
-                return None
-            except:
-                return None
-        
-        df['_temp_month'] = df['race_id'].apply(extract_month_from_race_id)
+        # CSVに存在する month カラムを直接使用
+        # 注意: race_id[4:6] は競馬場コードであり月ではない
+        if 'month' in df.columns:
+            df['_temp_month'] = pd.to_numeric(df['month'], errors='coerce')
+        else:
+            # フォールバック: month カラムがない場合は警告
+            print("Warning: 'month' column not found in data. Cannot filter by month.")
+            df['_temp_month'] = None
         
         # Filter by month range
         if start_month is not None and end_month is not None:
