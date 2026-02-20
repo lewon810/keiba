@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import os
 import glob
 from train import settings
@@ -24,8 +25,9 @@ class HistoryLoader:
                 # レガシー: date カラム
                 df = pd.read_csv(f, dtype={'race_id': str, 'horse_id': str})
                 
-                # 必要カラムのみ残す
-                needed = ['horse_id', 'rank', 'time', 'race_id', 'last_3f']
+                # 必要カラム（speed_index計算のため course_type, distance, time を追加）
+                needed = ['horse_id', 'rank', 'time', 'race_id', 'last_3f',
+                          'course_type', 'distance']
                 date_cols = []
                 if 'year' in df.columns and 'month' in df.columns and 'day' in df.columns:
                     date_cols = ['year', 'month', 'day']
@@ -75,6 +77,9 @@ class HistoryLoader:
             
             # Parse last_3f to numeric
             self.df['last_3f'] = pd.to_numeric(self.df['last_3f'], errors='coerce').fillna(0)
+            
+            # --- Speed Index の計算 ---
+            self._calculate_speed_index()
  
         else:
             self.df = pd.DataFrame(columns=['horse_id', 'date', 'rank'])
@@ -88,9 +93,58 @@ class HistoryLoader:
             print("⚠️  Predictions will use default values, resulting in lower accuracy.")
             print(f"⚠️  Expected data location: {settings.RAW_DATA_DIR}")
 
+    def _calculate_speed_index(self):
+        """
+        履歴データから speed_index を計算する。
+        preprocess.py と同じロジック: Z-score (コース種別 × 距離別)
+        speed_index = (course_mean - time_sec) / course_std
+        （高い値 = 速い）
+        """
+        # time を秒数にパース
+        def parse_time(t_str):
+            try:
+                t_str = str(t_str)
+                if ':' in t_str:
+                    m, s = t_str.split(':')
+                    return int(m) * 60 + float(s)
+                return float(t_str)
+            except:
+                return np.nan
+        
+        self.df['time_sec'] = self.df['time'].apply(parse_time)
+        
+        # コース × 距離 ごとの統計を計算
+        if 'course_type' in self.df.columns and 'distance' in self.df.columns:
+            self.df['distance'] = pd.to_numeric(self.df['distance'], errors='coerce')
+            valid_times = self.df[self.df['time_sec'] > 0]
+            
+            if not valid_times.empty:
+                course_stats = valid_times.groupby(
+                    ['course_type', 'distance']
+                )['time_sec'].agg(['mean', 'std']).reset_index()
+                course_stats.columns = ['course_type', 'distance', 'course_mean', 'course_std']
+                
+                # マージして speed_index を計算
+                self.df = self.df.merge(course_stats, on=['course_type', 'distance'], how='left')
+                self.df['speed_index'] = (
+                    (self.df['course_mean'] - self.df['time_sec']) / 
+                    self.df['course_std'].replace(0, 1)
+                )
+                self.df['speed_index'] = self.df['speed_index'].fillna(0)
+                
+                # 一時カラムの削除
+                self.df = self.df.drop(columns=['course_mean', 'course_std'], errors='ignore')
+                
+                print(f"Speed index calculated: mean={self.df['speed_index'].mean():.3f}, "
+                      f"std={self.df['speed_index'].std():.3f}")
+            else:
+                self.df['speed_index'] = 0
+        else:
+            self.df['speed_index'] = 0
+
     def get_last_race(self, horse_id, current_date_str=None):
         """
-        Returns dict of last race stats: {lag1_rank, interval, ...}
+        Returns dict of last race stats: {lag1_rank, interval, lag1_speed_index, lag1_last_3f}
         """
         if self.df is None or self.df.empty:
              return None
@@ -129,11 +183,17 @@ class HistoryLoader:
             last_3f = float(last_race.get('last_3f', 0))
         except:
             last_3f = 0.0
+        
+        # Speed Index（計算済みの値を使用）
+        try:
+            speed_index = float(last_race.get('speed_index', 0))
+        except:
+            speed_index = 0.0
             
         return {
             "lag1_rank": rank,
             "interval": interval,
-            "lag1_speed_index": 0, # Placeholder as we don't have stored SI in raw
+            "lag1_speed_index": speed_index,
             "lag1_last_3f": last_3f
         }
 
