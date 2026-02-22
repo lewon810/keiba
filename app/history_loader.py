@@ -196,6 +196,48 @@ class HistoryLoader:
             "lag1_speed_index": speed_index,
             "lag1_last_3f": last_3f
         }
+    def get_nth_last_race(self, horse_id, n=2, current_date_str=None):
+        """
+        N走前のレースデータを返す。n=1はget_last_raceと同等、n=2は2走前。
+        Returns dict: {lag1_rank, interval, lag1_speed_index, lag1_last_3f}
+        """
+        if self.df is None or self.df.empty:
+            return None
+        
+        history = self.df[self.df['horse_id'].astype(str) == str(horse_id)]
+        
+        if history.empty:
+            return None
+        
+        if current_date_str:
+            curr_date = pd.to_datetime(current_date_str)
+            history = history[history['date'] < curr_date]
+        
+        if len(history) < n:
+            return None
+        
+        target_race = history.iloc[-n]
+        
+        try:
+            rank = int(target_race['rank'])
+        except:
+            rank = 99
+        
+        try:
+            last_3f = float(target_race.get('last_3f', 0))
+        except:
+            last_3f = 0.0
+        
+        try:
+            speed_index = float(target_race.get('speed_index', 0))
+        except:
+            speed_index = 0.0
+        
+        return {
+            "lag1_rank": rank,
+            "lag1_speed_index": speed_index,
+            "lag1_last_3f": last_3f
+        }
 
 # Global instance
 loader = HistoryLoader()

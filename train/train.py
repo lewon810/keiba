@@ -38,11 +38,12 @@ def train_model(start_year, end_year, start_month=None, end_month=None):
         'sire_id', 'damsire_id', 'running_style',
         'sire_win_rate', 'damsire_win_rate',
         'course_type_win_rate', 'dist_cat_win_rate',
-        'front_runner_count', 'pace_ratio'
+        'popularity', 'horse_age', 'num_runners',
+        'lag2_rank', 'lag3_rank', 'avg_last3_rank'
     ]
-    target = 'rank'  # Changed from 'rank_class' to 'rank' for LambdaRank
+    target = 'rank'  # LambdaRank用
     
-    print(f"Features: {features}")
+    print(f"Features ({len(features)}): {features}")
     
     # Sort by race_id to ensure group parameter alignment
     train = train.sort_values('race_id').reset_index(drop=True)
@@ -69,8 +70,15 @@ def train_model(start_year, end_year, start_month=None, end_month=None):
         'metric': 'ndcg',
         'ndcg_eval_at': [1, 3, 5],
         'boosting_type': 'gbdt',
-        'learning_rate': 0.05,
-        'num_leaves': 31,
+        'learning_rate': 0.03,          # より安定した学習のため低め
+        'num_leaves': 63,               # より複雑なパターンを捉える
+        'min_child_samples': 50,        # 過学習防止
+        'feature_fraction': 0.8,        # 特徴量サブサンプリング
+        'bagging_fraction': 0.8,        # データサブサンプリング
+        'bagging_freq': 5,
+        'lambda_l1': 0.1,              # L1正則化
+        'lambda_l2': 1.0,              # L2正則化
+        'max_depth': 8,                # 木の深さ制限
         'verbose': -1,
         'seed': 42
     }
@@ -80,7 +88,7 @@ def train_model(start_year, end_year, start_month=None, end_month=None):
         params,
         lgb_train,
         valid_sets=[lgb_train, lgb_eval],
-        num_boost_round=1000, # Increased rounds
+        num_boost_round=2000,  # より多いラウンド（early stoppingで制御）
         callbacks=[
             lgb.early_stopping(stopping_rounds=20),
             lgb.log_evaluation(50)

@@ -182,40 +182,24 @@ def preprocess(df):
         df['last_3f_rank'] = 99
         df['last_3f_deviation'] = 50
     
-    # Feature: Pace (ペース情報)
-    # Count front-runners (逃げ・先行) in each race based on passing position
-    if 'passing' in df.columns:
-        # Extract first corner position from passing (e.g., "4-4" -> 4)
-        def get_first_position(passing):
-            if not passing or not isinstance(passing, str) or '-' not in passing:
-                return 99
-            try:
-                pos_list = [int(p) for p in passing.split('-') if p.isdigit()]
-                return pos_list[0] if pos_list else 99
-            except:
-                return 99
-        
-        df['first_position'] = df['passing'].apply(get_first_position)
-        
-        # Count front runners (position <= 2) per race
-        df['is_front_runner'] = (df['first_position'] <= 2).astype(int)
-        race_pace = df.groupby('race_id').agg({
-            'is_front_runner': 'sum',
-            'horse_id': 'count'  # Total horses in race
-        }).reset_index()
-        race_pace.columns = ['race_id', 'front_runner_count', 'race_size']
-        
-        df = df.merge(race_pace, on='race_id', how='left')
-        
-        # Pace ratio: front_runner_count / race_size
-        df['pace_ratio'] = df['front_runner_count'] / df['race_size'].replace(0, 1)
-        df['pace_ratio'] = df['pace_ratio'].fillna(0)
-        
-        # Drop temporary columns
-        df = df.drop(columns=['first_position', 'is_front_runner', 'race_size'], errors='ignore')
+    # Feature: Popularity (人気順位) — レース前に判明する情報
+    if 'popularity' in df.columns:
+        df['popularity'] = pd.to_numeric(df['popularity'], errors='coerce').fillna(99)
     else:
-        df['front_runner_count'] = 0
-        df['pace_ratio'] = 0
+        df['popularity'] = 99
+    
+    # Feature: Number of Runners (出走頭数)
+    df['num_runners'] = df.groupby('race_id')['horse_id'].transform('count')
+    
+    # Feature: Horse Age (馬齢) — horse_id の先頭4桁が生年
+    if 'horse_id' in df.columns:
+        df['horse_birth_year'] = df['horse_id'].astype(str).str[:4]
+        df['horse_birth_year'] = pd.to_numeric(df['horse_birth_year'], errors='coerce')
+        df['horse_age'] = df['year'] - df['horse_birth_year']
+        df['horse_age'] = df['horse_age'].clip(lower=2, upper=10).fillna(3)
+        df = df.drop(columns=['horse_birth_year'], errors='ignore')
+    else:
+        df['horse_age'] = 3
     
     # Feature: Speed Index (Z-score by Course & Distance)
     # Group by CourseType + Distance
@@ -238,22 +222,52 @@ def preprocess(df):
     else:
         df['speed_index'] = 0
 
+    # Feature: Running Style (脚質) — 前走の通過順から算出（リーケージ回避）
+    if 'passing' in df.columns:
+        def get_first_position(passing):
+            if not passing or not isinstance(passing, str) or '-' not in passing:
+                return 99
+            try:
+                pos_list = [int(p) for p in passing.split('-') if p.isdigit()]
+                return pos_list[0] if pos_list else 99
+            except:
+                return 99
+        df['first_position'] = df['passing'].apply(get_first_position)
+    else:
+        df['first_position'] = 99
+    
     # Feature: Lag Features (Past Performance)
     # Sort by Horse and Date
     df = df.sort_values(['horse_id', 'date'])
     
     # Lag 1: Previous Rank
-    df['lag1_rank'] = df.groupby('horse_id')['rank'].shift(1).fillna(99) # Default to 99 (unranked/debut)
+    df['lag1_rank'] = df.groupby('horse_id')['rank'].shift(1).fillna(99)
+    
+    # Lag 2, 3: 2走前・3走前の着順
+    df['lag2_rank'] = df.groupby('horse_id')['rank'].shift(2).fillna(99)
+    df['lag3_rank'] = df.groupby('horse_id')['rank'].shift(3).fillna(99)
+    
+    # Average of last 3 ranks (直近3走の平均着順)
+    df['avg_last3_rank'] = df[['lag1_rank', 'lag2_rank', 'lag3_rank']].mean(axis=1)
     
     # Lag 1: Previous Speed Index
     df['lag1_speed_index'] = df.groupby('horse_id')['speed_index'].shift(1).fillna(0)
     
     # Lag 1: Previous Last 3F Time (前走の上がり3F)
-    # This is VALID - it's previous race data, not current race (no leakage)
     df['lag1_last_3f'] = df.groupby('horse_id')['last_3f_time'].shift(1).fillna(0)
     
     # Lag 1: Interval (Days since last race)
-    df['interval'] = (df['date'] - df.groupby('horse_id')['date'].shift(1)).dt.days.fillna(365) # Default 1 year
+    df['interval'] = (df['date'] - df.groupby('horse_id')['date'].shift(1)).dt.days.fillna(365)
+    
+    # Lag 1: Running Style — 前走の脚質（リーケージ回避）
+    df['lag1_first_position'] = df.groupby('horse_id')['first_position'].shift(1).fillna(99)
+    def classify_running_style(pos):
+        if pos <= 2: return "front"   # 逃げ・先行
+        if pos <= 7: return "middle"  # 先行・差し
+        if pos < 99: return "back"    # 差し・追込
+        return "unknown"
+    df['running_style'] = df['lag1_first_position'].apply(classify_running_style)
+    df = df.drop(columns=['first_position', 'lag1_first_position'], errors='ignore')
 
     # Target Encoding (Jockey) - Expanding Window (Leakage Free)
     # Sort by date first (already done above)
@@ -314,28 +328,8 @@ def preprocess(df):
             print(f"Warning: {col} not found in data. Filling with 0.")
             df[f'{col.replace("_id", "")}_win_rate'] = 0.0
 
-    # Feature: Running Style (脚質) [Audit Recommendation]
-    # Based on 'passing' column (e.g. 1-1-2-2)
-    def extract_running_style(passing):
-        if not passing or not isinstance(passing, str) or '-' not in passing:
-            return "unknown"
-        try:
-            # Get first corner position
-            pos_list = [int(p) for p in passing.split('-') if p.isdigit()]
-            if not pos_list: return "unknown"
-            
-            first_pos = pos_list[0]
-            # Simple heuristic:
-            if first_pos <= 2: return "front" # 逃げ・先行
-            if first_pos <= 7: return "middle" # 先行・差し
-            return "back" # 差し・追込
-        except:
-            return "unknown"
-            
-    if 'passing' in df.columns:
-        df['running_style'] = df['passing'].apply(extract_running_style)
-    else:
-        df['running_style'] = "unknown"
+    # Note: running_style は上記の Lag Features セクションで
+    # 前走の通過順からリーケージなしで算出済み
 
     # Feature: Aptitude (Turf/Dirt, Distance) - Expanding Window
     # Must be done after sorting by date (already sorted)
@@ -522,34 +516,24 @@ def transform(df, artifacts):
         df['last_3f_rank'] = 99
         df['last_3f_deviation'] = 50
     
-    # Feature: Pace (ペース情報) - Same logic as preprocess
-    if 'passing' in df.columns:
-        def get_first_position(passing):
-            if not passing or not isinstance(passing, str) or '-' not in passing:
-                return 99
-            try:
-                pos_list = [int(p) for p in passing.split('-') if p.isdigit()]
-                return pos_list[0] if pos_list else 99
-            except:
-                return 99
-        
-        df['first_position'] = df['passing'].apply(get_first_position)
-        df['is_front_runner'] = (df['first_position'] <= 2).astype(int)
-        
-        race_pace = df.groupby('race_id').agg({
-            'is_front_runner': 'sum',
-            'horse_id': 'count'
-        }).reset_index()
-        race_pace.columns = ['race_id', 'front_runner_count', 'race_size']
-        
-        df = df.merge(race_pace, on='race_id', how='left')
-        df['pace_ratio'] = df['front_runner_count'] / df['race_size'].replace(0, 1)
-        df['pace_ratio'] = df['pace_ratio'].fillna(0)
-        
-        df = df.drop(columns=['first_position', 'is_front_runner', 'race_size'], errors='ignore')
+    # Feature: Popularity (人気順位) — レース前に判明する情報
+    if 'popularity' in df.columns:
+        df['popularity'] = pd.to_numeric(df['popularity'], errors='coerce').fillna(99)
     else:
-        df['front_runner_count'] = 0
-        df['pace_ratio'] = 0
+        df['popularity'] = 99
+    
+    # Feature: Number of Runners (出走頭数)
+    df['num_runners'] = df.groupby('race_id')['horse_id'].transform('count')
+    
+    # Feature: Horse Age (馬齢) — horse_id の先頭4桁が生年
+    if 'horse_id' in df.columns and 'year' in df.columns:
+        df['horse_birth_year'] = df['horse_id'].astype(str).str[:4]
+        df['horse_birth_year'] = pd.to_numeric(df['horse_birth_year'], errors='coerce')
+        df['horse_age'] = pd.to_numeric(df['year'], errors='coerce') - df['horse_birth_year']
+        df['horse_age'] = df['horse_age'].clip(lower=2, upper=10).fillna(3)
+        df = df.drop(columns=['horse_birth_year'], errors='ignore')
+    else:
+        df['horse_age'] = 3
     
     # Feature: Speed Index
     # Use Artifacts if available (preferred for consistency)
@@ -580,28 +564,19 @@ def transform(df, artifacts):
         else:
             df['speed_index'] = 0
 
-    # Feature: Running Style (Validation Only - Leakage for Inference if using current passing)
-    # If passing exists (results data), calculate it. Else unknown.
-    def extract_running_style(passing):
-        if not passing or not isinstance(passing, str) or '-' not in passing:
-            return "unknown"
-        try:
-            # Get first corner position
-            pos_list = [int(p) for p in passing.split('-') if p.isdigit()]
-            if not pos_list: return "unknown"
-            
-            first_pos = pos_list[0]
-            # Simple heuristic:
-            if first_pos <= 2: return "front" # 逃げ・先行
-            if first_pos <= 7: return "middle" # 先行・差し
-            return "back" # 差し・追込
-        except:
-            return "unknown"
-            
+    # Feature: Running Style (脚質) — 前走の通過順から算出（リーケージ回避）
     if 'passing' in df.columns:
-        df['running_style'] = df['passing'].apply(extract_running_style)
+        def get_first_position(passing):
+            if not passing or not isinstance(passing, str) or '-' not in passing:
+                return 99
+            try:
+                pos_list = [int(p) for p in passing.split('-') if p.isdigit()]
+                return pos_list[0] if pos_list else 99
+            except:
+                return 99
+        df['first_position'] = df['passing'].apply(get_first_position)
     else:
-        df['running_style'] = "unknown"
+        df['first_position'] = 99
 
     # Lag Features (Past Performance) - Self-contained sort
     df = df.sort_values(['horse_id', 'date'])
@@ -613,12 +588,26 @@ def transform(df, artifacts):
         df['rank'] = np.nan
         
     df['lag1_rank'] = df.groupby('horse_id')['rank'].shift(1).fillna(99).astype(int)
+    df['lag2_rank'] = df.groupby('horse_id')['rank'].shift(2).fillna(99).astype(int)
+    df['lag3_rank'] = df.groupby('horse_id')['rank'].shift(3).fillna(99).astype(int)
+    df['avg_last3_rank'] = df[['lag1_rank', 'lag2_rank', 'lag3_rank']].mean(axis=1)
+    
     df['lag1_speed_index'] = df.groupby('horse_id')['speed_index'].shift(1).fillna(0)
     
     # Lag 1: Previous Last 3F Time (前走の上がり3F)
     df['lag1_last_3f'] = df.groupby('horse_id')['last_3f_time'].shift(1).fillna(0)
     
     df['interval'] = (df['date'] - df.groupby('horse_id')['date'].shift(1)).dt.days.fillna(365)
+    
+    # Lag 1: Running Style — 前走の脚質（リーケージ回避）
+    df['lag1_first_position'] = df.groupby('horse_id')['first_position'].shift(1).fillna(99)
+    def classify_running_style(pos):
+        if pos <= 2: return "front"   # 逃げ・先行
+        if pos <= 7: return "middle"  # 先行・差し
+        if pos < 99: return "back"    # 差し・追込
+        return "unknown"
+    df['running_style'] = df['lag1_first_position'].apply(classify_running_style)
+    df = df.drop(columns=['first_position', 'lag1_first_position'], errors='ignore')
 
     # Encoding using Artifacts
     # Added Pedigree Features

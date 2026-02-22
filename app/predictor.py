@@ -63,6 +63,13 @@ def predict(race_data, return_df=False, power=None):
                     df.at[i, 'lag1_speed_index'] = 0
                     df.at[i, 'lag1_last_3f'] = 0
                     df.at[i, 'interval'] = 365
+                
+                # Lag 2, 3 — 2走前・3走前のデータ
+                lag2_stats = loader.get_nth_last_race(row['horse_id'], n=2, current_date_str=current_date) if hasattr(loader, 'get_nth_last_race') else None
+                lag3_stats = loader.get_nth_last_race(row['horse_id'], n=3, current_date_str=current_date) if hasattr(loader, 'get_nth_last_race') else None
+                df.at[i, 'lag2_rank'] = lag2_stats['lag1_rank'] if lag2_stats else 99
+                df.at[i, 'lag3_rank'] = lag3_stats['lag1_rank'] if lag3_stats else 99
+
         except Exception as e:
             print(f"⚠️  History load failed: {e}")
             print("⚠️  Using default feature values - prediction accuracy will be reduced.")
@@ -70,6 +77,11 @@ def predict(race_data, return_df=False, power=None):
             df['lag1_speed_index'] = 0
             df['lag1_last_3f'] = 0
             df['interval'] = 365
+            df['lag2_rank'] = 99
+            df['lag3_rank'] = 99
+        
+        # 直近3走の平均着順
+        df['avg_last3_rank'] = df[['lag1_rank', 'lag2_rank', 'lag3_rank']].mean(axis=1)
 
         # 2. Jockey Win Rate
         jockey_map = artifacts.get('jockey_win_rate', {})
@@ -181,12 +193,30 @@ def predict(race_data, return_df=False, power=None):
             df['weight_diff'] = 0
         df['weight_diff'] = pd.to_numeric(df['weight_diff'], errors='coerce').fillna(0)
 
-        # Feature: Pace (predictable pre-race based on horse tendencies)
-        # Note: last_3f features removed - they are post-race data (data leakage)
-        # Pace features use historical passing data to predict race dynamics
-        if 'passing' not in df.columns or df['passing'].isna().all():
-            df['front_runner_count'] = 0  # Unknown
-            df['pace_ratio'] = 0  # Unknown
+        # Feature: Popularity（人気順位）
+        if 'popularity' in df.columns:
+            df['popularity'] = pd.to_numeric(df['popularity'], errors='coerce').fillna(99)
+        else:
+            df['popularity'] = 99
+        
+        # Feature: Number of Runners（出走頭数）
+        df['num_runners'] = len(df)
+        
+        # Feature: Horse Age（馬齢）
+        if 'horse_id' in df.columns:
+            import datetime
+            current_year = datetime.datetime.now().year
+            df['horse_birth_year'] = df['horse_id'].astype(str).str[:4]
+            df['horse_birth_year'] = pd.to_numeric(df['horse_birth_year'], errors='coerce')
+            df['horse_age'] = current_year - df['horse_birth_year']
+            df['horse_age'] = df['horse_age'].clip(lower=2, upper=10).fillna(3)
+            df = df.drop(columns=['horse_birth_year'], errors='ignore')
+        else:
+            df['horse_age'] = 3
+        
+        # Running Style — デフォルトは unknown（推論時は前走データなし）
+        if 'running_style' not in df.columns:
+            df['running_style'] = "unknown"
 
         # 5. Predict
         features = [
@@ -196,7 +226,8 @@ def predict(race_data, return_df=False, power=None):
             'sire_id', 'damsire_id', 'running_style',
             'sire_win_rate', 'damsire_win_rate',
             'course_type_win_rate', 'dist_cat_win_rate',
-            'front_runner_count', 'pace_ratio'
+            'popularity', 'horse_age', 'num_runners',
+            'lag2_rank', 'lag3_rank', 'avg_last3_rank'
         ]
 
         # LambdaRank returns 1D score array (N,) - higher is better

@@ -64,34 +64,12 @@ def generate_report(start_year, end_year, output_file="evaluate.html", power_min
         print("No data found, skipping.")
         return
 
-    # Load Filters
-    import yaml
-    yaml_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'evaluate_settings.yml')
-    config = {}
-    if os.path.exists(yaml_path):
-        with open(yaml_path, 'r', encoding='utf-8') as f:
-            config = yaml.safe_load(f)
-
-
-
-    # Filter places & races
+    # Filter places & races (CLI range filter)
     if not raw_df.empty:
         raw_df['race_id'] = raw_df['race_id'].astype(str)
         raw_df['race_no'] = raw_df['race_id'].str[-2:].astype(int)
         
-        # 1. Config Filters (evaluate_settings.yml)
-        if config:
-            target_places = config.get('target_places', [])
-            if target_places:
-                print(f"Filtering places: {target_places}")
-                raw_df = raw_df[raw_df['race_id'].str[4:6].isin([str(p).zfill(2) for p in target_places])]
-            
-            target_races = config.get('target_race_numbers', [])
-            if target_races:
-                print(f"Filtering race numbers from settings: {target_races}")
-                raw_df = raw_df[raw_df['race_no'].isin(target_races)]
-        
-        # 2. CLI Range Filter (race_min/max)
+        # CLI Range Filter (race_min/max)
         if race_min is not None or race_max is not None:
              print(f"Filtering race numbers by range: {r_min}-{r_max}")
              raw_df = raw_df[(raw_df['race_no'] >= r_min) & (raw_df['race_no'] <= r_max)]
@@ -112,7 +90,8 @@ def generate_report(start_year, end_year, output_file="evaluate.html", power_min
         'sire_id', 'damsire_id', 'running_style',
         'sire_win_rate', 'damsire_win_rate',
         'course_type_win_rate', 'dist_cat_win_rate',
-        'front_runner_count', 'pace_ratio'
+        'popularity', 'horse_age', 'num_runners',
+        'lag2_rank', 'lag3_rank', 'avg_last3_rank'
     ]
     
     print("Predicting...")

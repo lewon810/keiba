@@ -6,19 +6,19 @@ https://lewon810.github.io/keiba/
 ## ✨ 特徴
 
 - **Advanced ML Strategy**:
-    - **アルゴリズム**: LightGBM (Gradient Boosting Decision Tree)
-    - **特徴量**:
+    - **アルゴリズム**: LightGBM LambdaRank (Learning to Rank)
+    - **特徴量** (29個):
         - **Speed Index**: コース・距離ごとの標準タイム偏差値（スピード指数）。
-        - **Pace (ペース)**: 逃げ・先行（1コーナー2位以内）の頭数と比率。レース展開を予測。
         - **Pedigree (血統)**: 種牡馬および母父の勝率データを活用。
         - **Target Encoding**: 騎手・調教師の勝率データを活用。
-        - **Context Features**: コース適性、天候、距離、馬場状態を考慮。
-        - **Lag Features (過去走)**: 前走の着順や指数、**上がり3F**、出走間隔を推論時に動的に参照。
+        - **Context Features**: コース適性、天候、距離、馬場状態、人気順位、出走頭数、馬齢を考慮。
+        - **Lag Features (過去走)**: 直近3走の着順・平均着順、前走のスピード指数・**上がり3F**・出走間隔・脚質を推論時に動的に参照。
+        - **Aptitude (適性)**: コース種別（芝/ダート）・距離カテゴリ別の勝率。
     - **ベッティング戦略**: 「確率のn乗 × オッズ」によるスコアリング。
         - パラメータ `power` (デフォルト4) により穴馬への感度を調整可能。
 
 - **Backtesting & Verification**:
-    - `train/evaluate_settings.yml` による詳細な条件設定。
+    - `evaluate.yml` の入力パラメータによる詳細な条件設定（レース番号範囲、Power範囲等）。
     - **Range Evaluation**: 異なる指数（Power）やレース番号を範囲指定して一括検証。
     - **HTML Reports**: グラフや詳細な的中履歴を含むレポートを自動生成。
 
