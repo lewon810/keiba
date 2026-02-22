@@ -3,6 +3,7 @@ import numpy as np
 import os
 import glob
 from train import settings
+from train.features import parse_time, extract_date_from_race_id
 
 class HistoryLoader:
     def __init__(self):
@@ -54,17 +55,6 @@ class HistoryLoader:
                 if self.df['date'].dtype == 'int64' or self.df['date'].dtype == 'int32':
                     print("⚠️  Warning: Date column is integer type. Sorting by race_id.")
                     self.df = self.df.sort_values('race_id')
-                    def extract_date_from_race_id(rid):
-                        try:
-                            rid_str = str(rid)
-                            if len(rid_str) >= 12:
-                                year = rid_str[0:4]
-                                month = rid_str[6:8]
-                                day = rid_str[8:10]
-                                return pd.to_datetime(f"{year}-{month}-{day}", errors='coerce')
-                            return pd.NaT
-                        except:
-                            return pd.NaT
                     self.df['date'] = self.df['race_id'].apply(extract_date_from_race_id)
                     self.df = self.df.dropna(subset=['date'])
                 else:
@@ -100,17 +90,7 @@ class HistoryLoader:
         speed_index = (course_mean - time_sec) / course_std
         （高い値 = 速い）
         """
-        # time を秒数にパース
-        def parse_time(t_str):
-            try:
-                t_str = str(t_str)
-                if ':' in t_str:
-                    m, s = t_str.split(':')
-                    return int(m) * 60 + float(s)
-                return float(t_str)
-            except:
-                return np.nan
-        
+        # time を秒数にパース — 共通関数を使用
         self.df['time_sec'] = self.df['time'].apply(parse_time)
         
         # コース × 距離 ごとの統計を計算

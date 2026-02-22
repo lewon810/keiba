@@ -3,14 +3,19 @@ import pandas as pd
 import os
 import sys
 
-# Add project root to path to import train.settings if needed
+# プロジェクトルートをパスに追加
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 try:
     from train import settings
+    from train.features import FEATURES, lookup_rate, get_dist_cat, apply_label_encoder
 except ImportError:
     class settings:
         MODEL_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'train', 'data', 'model')
         MODEL_PATH = os.path.join(MODEL_DIR, 'model_lgb.pkl')
+    FEATURES = None
+    lookup_rate = None
+    get_dist_cat = None
+    apply_label_encoder = None
 
 def predict(race_data, return_df=False, power=None):
     """
@@ -83,83 +88,45 @@ def predict(race_data, return_df=False, power=None):
         # 直近3走の平均着順
         df['avg_last3_rank'] = df[['lag1_rank', 'lag2_rank', 'lag3_rank']].mean(axis=1)
 
-        # 2. Jockey Win Rate
+        # 2. Jockey Win Rate — 共通関数を使用
         jockey_map = artifacts.get('jockey_win_rate', {})
-        def get_rate(jid):
-            # Try exact match, then string match, then 0
-            if jid in jockey_map: return jockey_map[jid]
-            try:
-                if int(jid) in jockey_map: return jockey_map[int(jid)]
-            except: pass
-            try:
-                if str(jid) in jockey_map: return jockey_map[str(jid)]
-            except: pass
-            return 0.0
+        df['jockey_win_rate'] = df['jockey_id'].apply(lambda jid: lookup_rate(jid, jockey_map))
 
-        df['jockey_win_rate'] = df['jockey_id'].apply(get_rate)
-
-        # 2b. Trainer Win Rate
+        # 2b. Trainer Win Rate — 共通関数を使用
         trainer_map = artifacts.get('trainer_win_rate', {})
-        def get_trainer_rate(tid):
-            if tid in trainer_map: return trainer_map[tid]
-            try:
-                if int(tid) in trainer_map: return trainer_map[int(tid)]
-            except: pass
-            try:
-                if str(tid) in trainer_map: return trainer_map[str(tid)]
-            except: pass
-            return 0.0
-            
-        df['trainer_win_rate'] = df['trainer_id'].apply(get_trainer_rate)
+        df['trainer_win_rate'] = df['trainer_id'].apply(lambda tid: lookup_rate(tid, trainer_map))
 
         # 3. Categorical Encoding (Label Encoder)
         cat_cols = ['horse_id', 'jockey_id', 'trainer_id', 'course_type', 'weather', 'condition', 'sire_id', 'damsire_id', 'running_style']
         
-        # 2c. Sire/DamSire Win Rate
+        # 2c. Sire/DamSire Win Rate — 共通関数を使用
         for col in ['sire_win_rate', 'damsire_win_rate']:
-            base_col = col.replace('_win_rate', '_id') # sire_id
+            base_col = col.replace('_win_rate', '_id')  # sire_id
             map_data = artifacts.get(col, {})
-            def get_pedigree_rate(pid):
-                if pid in map_data: return map_data[pid]
-                if str(pid) in map_data: return map_data[str(pid)]
-                return 0.0
-            # Ensure base col exists first (handled in loop below? No, must exist for apply)
             if base_col not in df.columns: df[base_col] = 'unknown'
-            df[col] = df[base_col].apply(get_pedigree_rate)
+            df[col] = df[base_col].apply(lambda pid: lookup_rate(pid, map_data))
 
-        # 2d. Aptitude Features (Turf/Dirt, Distance)
+        # 2d. Aptitude Features (Turf/Dirt, Distance) — 共通関数を使用
         # Turf/Dirt
         apt_type_map = artifacts.get('aptitude_type', {})
-        def get_type_aptitude(row):
+        def _get_type_aptitude(row):
             hid = str(row['horse_id'])
             ctype = row.get('course_type', 'unknown')
             if hid in apt_type_map and ctype in apt_type_map[hid]:
                 return apt_type_map[hid][ctype]
             return 0.0
-        df['course_type_win_rate'] = df.apply(get_type_aptitude, axis=1)
+        df['course_type_win_rate'] = df.apply(_get_type_aptitude, axis=1)
 
-        # Distance
+        # Distance — 共通関数を使用
         apt_dist_map = artifacts.get('aptitude_dist', {})
-        def get_dist_cat(d):
-            try:
-                d = int(d)
-                if d < 1400: return 'sprint'
-                if d < 1900: return 'mile'
-                if d < 2500: return 'intermediate'
-                return 'long'
-            except:
-                return 'unknown'
-        
-        # Create temp dist_cat if needed
         df['dist_cat_temp'] = df['distance'].apply(get_dist_cat)
-        
-        def get_dist_aptitude(row):
+        def _get_dist_aptitude(row):
             hid = str(row['horse_id'])
             cat = row.get('dist_cat_temp', 'unknown')
             if hid in apt_dist_map and cat in apt_dist_map[hid]:
                 return apt_dist_map[hid][cat]
             return 0.0
-        df['dist_cat_win_rate'] = df.apply(get_dist_aptitude, axis=1)
+        df['dist_cat_win_rate'] = df.apply(_get_dist_aptitude, axis=1)
 
 
         for col in cat_cols:
@@ -167,19 +134,10 @@ def predict(race_data, return_df=False, power=None):
             if col not in df.columns:
                  df[col] = "unknown"
                  
-            # Keys in encoders.pkl are bare column names (e.g. 'horse_id')
+            # LabelEncoder 適用 — 共通関数を使用
             if col in artifacts:
-                le = artifacts[col]
-                valid_classes = set(le.classes_)
-                # Handle unknown
-                df[col] = df[col].astype(str).map(lambda x: x if x in valid_classes else "unknown")
-                # If "unknown" itself is not in classes, map to index 0 safety
-                if "unknown" not in valid_classes:
-                     df[col] = df[col].map(lambda x: x if x in valid_classes else list(valid_classes)[0])
-
-                df[col] = le.transform(df[col]).astype(int)
+                df = apply_label_encoder(df, col, artifacts[col])
             else:
-                 # If encoder missing, fill 0
                  df[col] = 0
 
         # ... (Numeric cleanup skipped in this diff, assuming follow-up or inclusion)
@@ -218,17 +176,8 @@ def predict(race_data, return_df=False, power=None):
         if 'running_style' not in df.columns:
             df['running_style'] = "unknown"
 
-        # 5. Predict
-        features = [
-            'jockey_win_rate', 'trainer_win_rate', 'horse_id', 'jockey_id', 'trainer_id',
-            'waku', 'umaban', 'course_type', 'distance', 'weather', 'condition',
-            'lag1_rank', 'lag1_speed_index', 'lag1_last_3f', 'interval', 'weight_diff',
-            'sire_id', 'damsire_id', 'running_style',
-            'sire_win_rate', 'damsire_win_rate',
-            'course_type_win_rate', 'dist_cat_win_rate',
-            'popularity', 'horse_age', 'num_runners',
-            'lag2_rank', 'lag3_rank', 'avg_last3_rank'
-        ]
+        # 5. Predict — 共通定数を使用
+        features = FEATURES
 
         # LambdaRank returns 1D score array (N,) - higher is better
         pred_scores = model.predict(df[features])

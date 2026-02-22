@@ -9,24 +9,12 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 from app import scraper, predictor, history_loader
 from train import settings
+from train.features import PLACE_MAP_SHORT as PLACE_MAP
 
 SEX_MAP = {
     '牡': 'Male',
     '牝': 'Female',
     'セ': 'Gelding'
-}
-
-PLACE_MAP = {
-    '01': 'Sapporo',
-    '02': 'Hakodate',
-    '03': 'Fukushima',
-    '04': 'Niigata',
-    '05': 'Tokyo',
-    '06': 'Nakayama',
-    '07': 'Chukyo',
-    '08': 'Kyoto',
-    '09': 'Hanshin',
-    '10': 'Kokura'
 }
 
 def generate_prediction_report(output_file="predict.html", power_min=None, power_max=None):

@@ -4,6 +4,7 @@ import joblib
 import os
 from . import settings
 from . import preprocess
+from .features import FEATURES
 
 import argparse
 
@@ -31,16 +32,7 @@ def train_model(start_year, end_year, start_month=None, end_month=None):
     train, valid, _ = preprocess.split_data(df)
     
     # 3. Train with LambdaRank
-    features = [
-        'jockey_win_rate', 'trainer_win_rate', 'horse_id', 'jockey_id', 'trainer_id',
-        'waku', 'umaban', 'course_type', 'distance', 'weather', 'condition',
-        'lag1_rank', 'lag1_speed_index', 'lag1_last_3f', 'interval', 'weight_diff',
-        'sire_id', 'damsire_id', 'running_style',
-        'sire_win_rate', 'damsire_win_rate',
-        'course_type_win_rate', 'dist_cat_win_rate',
-        'popularity', 'horse_age', 'num_runners',
-        'lag2_rank', 'lag3_rank', 'avg_last3_rank'
-    ]
+    features = FEATURES
     target = 'rank'  # LambdaRank用
     
     print(f"Features ({len(features)}): {features}")

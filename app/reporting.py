@@ -1,12 +1,7 @@
 import pandas as pd
 import datetime
 import os
-
-PLACE_MAP = {
-    "01": "札幌 (Sapporo)", "02": "函館 (Hakodate)", "03": "福島 (Fukushima)", "04": "新潟 (Niigata)",
-    "05": "東京 (Tokyo)", "06": "中山 (Nakayama)", "07": "中京 (Chukyo)", "08": "京都 (Kyoto)",
-    "09": "阪神 (Hanshin)", "10": "小倉 (Kokura)"
-}
+from train.features import PLACE_MAP
 
 def generate_html_report(predictions_list, output_path="index.html"):
     """

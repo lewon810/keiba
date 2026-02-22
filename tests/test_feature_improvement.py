@@ -33,10 +33,10 @@ def extract_features_from_source(filepath):
 
 
 class TestFeatureConsistency:
-    """全ファイルの特徴量リストが一致することを検証"""
+    """全ファイルの特徴量リストが共通定数 FEATURES から取得されていることを検証"""
     
-    def _get_all_feature_lists(self):
-        """全ファイルから特徴量リストを取得"""
+    def test_all_files_use_shared_features(self):
+        """全ファイルが train.features.FEATURES を参照していること"""
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         files = {
             'train.py': os.path.join(base_dir, 'train', 'train.py'),
@@ -45,55 +45,34 @@ class TestFeatureConsistency:
             'predictor.py': os.path.join(base_dir, 'app', 'predictor.py'),
         }
         
-        result = {}
         for name, path in files.items():
-            if os.path.exists(path):
-                features = extract_features_from_source(path)
-                result[name] = features
-        
-        return result
+            assert os.path.exists(path), f"{name} が見つかりません: {path}"
+            with open(path, 'r', encoding='utf-8') as f:
+                source = f.read()
+            assert 'FEATURES' in source, \
+                f"{name} が共通定数 FEATURES を参照していません"
     
-    def test_all_feature_lists_match(self):
-        """全ファイルの特徴量リストが同一であること"""
-        all_features = self._get_all_feature_lists()
-        
-        assert len(all_features) >= 3, f"少なくとも3ファイルの特徴量が必要 (見つかった: {list(all_features.keys())})"
-        
-        # train.py を基準にする
-        reference = all_features['train.py']
-        assert len(reference) > 0, "train.py から特徴量が抽出できません"
-        
-        for name, features in all_features.items():
-            assert set(features) == set(reference), \
-                f"{name} の特徴量が train.py と不一致:\n" \
-                f"  不足: {set(reference) - set(features)}\n" \
-                f"  余分: {set(features) - set(reference)}"
-    
-    def test_feature_count(self):
-        """特徴量の数が期待通りであること（28個）"""
-        all_features = self._get_all_feature_lists()
-        reference = all_features['train.py']
-        assert len(reference) == 29, f"特徴量は29個であるべき (実際: {len(reference)})"
+    def test_features_source_of_truth(self):
+        """train.features.FEATURES が信頼できる唯一のソースであること"""
+        from train.features import FEATURES
+        assert len(FEATURES) == 29, f"特徴量は29個であるべき (実際: {len(FEATURES)})"
     
     def test_no_leakage_features(self):
         """リーケージ特徴量が含まれていないこと"""
-        all_features = self._get_all_feature_lists()
+        from train.features import FEATURES
         leakage_features = {'front_runner_count', 'pace_ratio'}
-        
-        for name, features in all_features.items():
-            found_leakage = set(features) & leakage_features
-            assert not found_leakage, \
-                f"{name} にリーケージ特徴量が残っています: {found_leakage}"
+        found_leakage = set(FEATURES) & leakage_features
+        assert not found_leakage, \
+            f"FEATURES にリーケージ特徴量が残っています: {found_leakage}"
     
     def test_new_features_present(self):
         """新しく追加した特徴量が含まれていること"""
-        all_features = self._get_all_feature_lists()
+        from train.features import FEATURES
         new_features = {'popularity', 'horse_age', 'num_runners', 'lag2_rank', 'lag3_rank', 'avg_last3_rank'}
-        
-        for name, features in all_features.items():
-            missing = new_features - set(features)
-            assert not missing, \
-                f"{name} に新特徴量が不足: {missing}"
+        missing = new_features - set(FEATURES)
+        assert not missing, \
+            f"FEATURES に新特徴量が不足: {missing}"
+
 
 
 class TestPreprocessNewFeatures:

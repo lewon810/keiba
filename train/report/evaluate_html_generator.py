@@ -13,6 +13,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 from train import evaluate
 from train import settings
+from train.features import FEATURES, PLACE_MAP_SHORT
 
 def generate_report(start_year, end_year, output_file="evaluate.html", power_min=None, power_max=None, race_min=None, race_max=None, start_month=None, end_month=None):
     if start_month and end_month:
@@ -26,12 +27,8 @@ def generate_report(start_year, end_year, output_file="evaluate.html", power_min
     p_max = int(power_max) if power_max is not None else p_min
     power_values = list(range(p_min, p_max + 1))
     
-    # Place Codes Mapping
-    place_map = {
-        "01": "Sapporo", "02": "Hakodate", "03": "Fukushima", "04": "Niigata",
-        "05": "Tokyo", "06": "Nakayama", "07": "Chukyo", "08": "Kyoto",
-        "09": "Hanshin", "10": "Kokura"
-    }
+    # Place Codes Mapping — 共通定数を使用
+    place_map = PLACE_MAP_SHORT
     
     r_min = int(race_min) if race_min is not None else 1
     r_max = int(race_max) if race_max is not None else 12
@@ -82,17 +79,8 @@ def generate_report(start_year, end_year, output_file="evaluate.html", power_min
     print("Transforming...")
     df_base = preprocess.transform(raw_df, artifacts)
     
-    # Features
-    features = [
-        'jockey_win_rate', 'trainer_win_rate', 'horse_id', 'jockey_id', 'trainer_id',
-        'waku', 'umaban', 'course_type', 'distance', 'weather', 'condition',
-        'lag1_rank', 'lag1_speed_index', 'lag1_last_3f', 'interval', 'weight_diff',
-        'sire_id', 'damsire_id', 'running_style',
-        'sire_win_rate', 'damsire_win_rate',
-        'course_type_win_rate', 'dist_cat_win_rate',
-        'popularity', 'horse_age', 'num_runners',
-        'lag2_rank', 'lag3_rank', 'avg_last3_rank'
-    ]
+    # Features — 共通定数を使用
+    features = FEATURES
     
     print("Predicting...")
     pred_probs = model.predict(df_base[features])

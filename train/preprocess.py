@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import os
 from . import settings
+from . import features as feat
 
 def load_data(start_year=None, end_year=None, start_month=None, end_month=None):
     """Loads all result CSVs from raw data directory, optionally filtering by year and month."""
@@ -143,44 +144,11 @@ def preprocess(df):
     df['date'] = pd.to_datetime(df[['year', 'month', 'day']].rename(
         columns={'year': 'year', 'month': 'month', 'day': 'day'}), errors='coerce')
     
-    # Feature: Time (seconds)
-    # Format 1:34.5 -> 94.5
-    def parse_time(t_str):
-        try:
-            if ':' in str(t_str):
-                m, s = t_str.split(':')
-                return int(m) * 60 + float(s)
-            return float(t_str)
-        except:
-            return np.nan
-            
-    df['time_sec'] = df['time'].apply(parse_time)
+    # Feature: Time (seconds) — 共通関数を使用
+    df['time_sec'] = df['time'].apply(feat.parse_time)
     
-    # Feature: Last 3F (上がり3ハロン)
-    # Parse last_3f to numeric seconds
-    if 'last_3f' in df.columns:
-        df['last_3f_time'] = pd.to_numeric(df['last_3f'], errors='coerce').fillna(0)
-        
-        # Calculate last_3f rank within each race
-        df['last_3f_rank'] = df.groupby('race_id')['last_3f_time'].rank(method='min', ascending=True).fillna(99)
-        
-        # Calculate last_3f deviation score (偏差値: mean=50, std=10)
-        # Group by race to get relative performance
-        race_3f_stats = df.groupby('race_id')['last_3f_time'].agg(['mean', 'std']).reset_index()
-        race_3f_stats.columns = ['race_id', 'race_3f_mean', 'race_3f_std']
-        df = df.merge(race_3f_stats, on='race_id', how='left')
-        
-        # Deviation score: 50 - (value - mean) / std * 10
-        # Lower last_3f_time is better (faster), so we invert
-        df['last_3f_deviation'] = 50 - ((df['last_3f_time'] - df['race_3f_mean']) / df['race_3f_std'].replace(0, 1)) * 10
-        df['last_3f_deviation'] = df['last_3f_deviation'].fillna(50)  # Default to average
-        
-        # Drop temporary columns
-        df = df.drop(columns=['race_3f_mean', 'race_3f_std'], errors='ignore')
-    else:
-        df['last_3f_time'] = 0
-        df['last_3f_rank'] = 99
-        df['last_3f_deviation'] = 50
+    # Feature: Last 3F (上がり3ハロン) — 共通関数を使用
+    df = feat.compute_last_3f_features(df)
     
     # Feature: Popularity (人気順位) — レース前に判明する情報
     if 'popularity' in df.columns:
@@ -224,15 +192,7 @@ def preprocess(df):
 
     # Feature: Running Style (脚質) — 前走の通過順から算出（リーケージ回避）
     if 'passing' in df.columns:
-        def get_first_position(passing):
-            if not passing or not isinstance(passing, str) or '-' not in passing:
-                return 99
-            try:
-                pos_list = [int(p) for p in passing.split('-') if p.isdigit()]
-                return pos_list[0] if pos_list else 99
-            except:
-                return 99
-        df['first_position'] = df['passing'].apply(get_first_position)
+        df['first_position'] = df['passing'].apply(feat.get_first_position)
     else:
         df['first_position'] = 99
     
@@ -261,12 +221,7 @@ def preprocess(df):
     
     # Lag 1: Running Style — 前走の脚質（リーケージ回避）
     df['lag1_first_position'] = df.groupby('horse_id')['first_position'].shift(1).fillna(99)
-    def classify_running_style(pos):
-        if pos <= 2: return "front"   # 逃げ・先行
-        if pos <= 7: return "middle"  # 先行・差し
-        if pos < 99: return "back"    # 差し・追込
-        return "unknown"
-    df['running_style'] = df['lag1_first_position'].apply(classify_running_style)
+    df['running_style'] = df['lag1_first_position'].apply(feat.classify_running_style)
     df = df.drop(columns=['first_position', 'lag1_first_position'], errors='ignore')
 
     # Target Encoding (Jockey) - Expanding Window (Leakage Free)
@@ -383,17 +338,7 @@ def preprocess(df):
     # Distance Category Win Rate
     # Sprint: <1400, Mile: 1400-1899, Intermediate: 1900-2400, Long: >2400
     if 'distance' in df.columns:
-        def get_dist_cat(d):
-            try:
-                d = int(d)
-                if d < 1400: return 'sprint'
-                if d < 1900: return 'mile'
-                if d < 2500: return 'intermediate'
-                return 'long'
-            except:
-                return 'unknown'
-                
-        df['dist_cat'] = df['distance'].apply(get_dist_cat)
+        df['dist_cat'] = df['distance'].apply(feat.get_dist_cat)
         
         # Expanding mean per (horse, dist_cat)
         df['dist_cat_win_rate'] = df.groupby(['horse_id', 'dist_cat'])['is_win'].transform(
@@ -448,8 +393,9 @@ def preprocess(df):
             # Add string conversion for safety
             df[col] = df[col].astype(str).fillna("unknown")
             le = LabelEncoder()
-            df[col] = le.fit_transform(df[col])
+            le.fit(df[col])
             artifacts[col] = le
+            df = feat.apply_label_encoder(df, col, le)
 
     # Fill NaNs
     df = df.fillna(0)
@@ -467,54 +413,17 @@ def transform(df, artifacts):
     elif 'date' in df.columns:
         # レガシーフォールバック: 旧フォーマット対応
         if df['date'].dtype == 'int64' or df['date'].dtype == 'int32':
-            def extract_date_from_race_id(rid):
-                try:
-                    rid_str = str(rid)
-                    if len(rid_str) >= 12:
-                        year = rid_str[0:4]
-                        month = rid_str[6:8]
-                        day = rid_str[8:10]
-                        return pd.to_datetime(f"{year}-{month}-{day}", errors='coerce')
-                    return pd.NaT
-                except:
-                    return pd.NaT
-            df['date'] = df['race_id'].apply(extract_date_from_race_id)
+            df['date'] = df['race_id'].apply(feat.extract_date_from_race_id)
         else:
             df['date'] = pd.to_datetime(df['date'], format='%Y年%m月%d日', errors='coerce')
     else:
         df['date'] = pd.NaT
     
-    # Feature: Time (seconds)
-    def parse_time(t_str):
-        try:
-            if ':' in str(t_str):
-                m, s = t_str.split(':')
-                return int(m) * 60 + float(s)
-            return float(t_str)
-        except:
-            return np.nan
-    df['time_sec'] = df['time'].apply(parse_time)
+    # Feature: Time (seconds) — 共通関数を使用
+    df['time_sec'] = df['time'].apply(feat.parse_time)
     
-    # Feature: Last 3F (上がり3ハロン) - Same logic as preprocess
-    if 'last_3f' in df.columns:
-        df['last_3f_time'] = pd.to_numeric(df['last_3f'], errors='coerce').fillna(0)
-        
-        # Calculate last_3f rank within each race
-        df['last_3f_rank'] = df.groupby('race_id')['last_3f_time'].rank(method='min', ascending=True).fillna(99)
-        
-        # Calculate last_3f deviation score
-        race_3f_stats = df.groupby('race_id')['last_3f_time'].agg(['mean', 'std']).reset_index()
-        race_3f_stats.columns = ['race_id', 'race_3f_mean', 'race_3f_std']
-        df = df.merge(race_3f_stats, on='race_id', how='left')
-        
-        df['last_3f_deviation'] = 50 - ((df['last_3f_time'] - df['race_3f_mean']) / df['race_3f_std'].replace(0, 1)) * 10
-        df['last_3f_deviation'] = df['last_3f_deviation'].fillna(50)
-        
-        df = df.drop(columns=['race_3f_mean', 'race_3f_std'], errors='ignore')
-    else:
-        df['last_3f_time'] = 0
-        df['last_3f_rank'] = 99
-        df['last_3f_deviation'] = 50
+    # Feature: Last 3F (上がり3ハロン) — 共通関数を使用
+    df = feat.compute_last_3f_features(df)
     
     # Feature: Popularity (人気順位) — レース前に判明する情報
     if 'popularity' in df.columns:
@@ -566,15 +475,7 @@ def transform(df, artifacts):
 
     # Feature: Running Style (脚質) — 前走の通過順から算出（リーケージ回避）
     if 'passing' in df.columns:
-        def get_first_position(passing):
-            if not passing or not isinstance(passing, str) or '-' not in passing:
-                return 99
-            try:
-                pos_list = [int(p) for p in passing.split('-') if p.isdigit()]
-                return pos_list[0] if pos_list else 99
-            except:
-                return 99
-        df['first_position'] = df['passing'].apply(get_first_position)
+        df['first_position'] = df['passing'].apply(feat.get_first_position)
     else:
         df['first_position'] = 99
 
@@ -601,12 +502,7 @@ def transform(df, artifacts):
     
     # Lag 1: Running Style — 前走の脚質（リーケージ回避）
     df['lag1_first_position'] = df.groupby('horse_id')['first_position'].shift(1).fillna(99)
-    def classify_running_style(pos):
-        if pos <= 2: return "front"   # 逃げ・先行
-        if pos <= 7: return "middle"  # 先行・差し
-        if pos < 99: return "back"    # 差し・追込
-        return "unknown"
-    df['running_style'] = df['lag1_first_position'].apply(classify_running_style)
+    df['running_style'] = df['lag1_first_position'].apply(feat.classify_running_style)
     df = df.drop(columns=['first_position', 'lag1_first_position'], errors='ignore')
 
     # Encoding using Artifacts
@@ -621,17 +517,10 @@ def transform(df, artifacts):
     for col, enc_map in encoding_cols:
         if col in artifacts:
             map_dict = artifacts[col]
-            # Map with type safety fallback
-            def get_rate(key, m=map_dict):
-                if key in m: return m[key]
-                if str(key) in m: return m[str(key)]
-                return 0.0
             id_col = enc_map
             if id_col in df.columns:
-                # Ensure ID is processed (e.g. unknown) handled by map safety or pre-fill
-                df[col] = df[id_col].astype(str).apply(get_rate)
+                df[col] = df[id_col].astype(str).apply(lambda k: feat.lookup_rate(k, map_dict))
             else:
-                # Fallback if ID column missing (e.g. inference data lacks profile)
                 df[col] = 0.0
         else:
             df[col] = 0.0
@@ -640,38 +529,26 @@ def transform(df, artifacts):
     # Apply using aptitude maps
     if 'aptitude_type' in artifacts:
         type_map = artifacts['aptitude_type']
-        def get_type_aptitude(row):
+        def _get_type_aptitude(row):
             hid = str(row['horse_id'])
             ctype = row.get('course_type', 'unknown')
             if hid in type_map and ctype in type_map[hid]:
                 return type_map[hid][ctype]
             return 0.0
-        df['course_type_win_rate'] = df.apply(get_type_aptitude, axis=1)
+        df['course_type_win_rate'] = df.apply(_get_type_aptitude, axis=1)
     else:
         df['course_type_win_rate'] = 0.0
 
     if 'aptitude_dist' in artifacts:
         dist_map = artifacts['aptitude_dist']
-        def get_dist_cat(d):
-            try:
-                d = int(d)
-                if d < 1400: return 'sprint'
-                if d < 1900: return 'mile'
-                if d < 2500: return 'intermediate'
-                return 'long'
-            except:
-                return 'unknown'
-        
-        # Ensure dist_cat exists
-        df['dist_cat'] = df['distance'].apply(get_dist_cat)
-        
-        def get_dist_aptitude(row):
+        df['dist_cat'] = df['distance'].apply(feat.get_dist_cat)
+        def _get_dist_aptitude(row):
             hid = str(row['horse_id'])
             cat = row.get('dist_cat', 'unknown')
             if hid in dist_map and cat in dist_map[hid]:
                 return dist_map[hid][cat]
             return 0.0
-        df['dist_cat_win_rate'] = df.apply(get_dist_aptitude, axis=1)
+        df['dist_cat_win_rate'] = df.apply(_get_dist_aptitude, axis=1)
     else:
         df['dist_cat_win_rate'] = 0.0
             
@@ -681,21 +558,11 @@ def transform(df, artifacts):
     else:
         df['weight_diff'] = 0
 
-    # Label Encoders
+    # Label Encoders — 共通関数を使用
     for col in settings.CATEGORY_COLS:
         if col in df.columns:
-            # Keys in encoders.pkl are bare column names (e.g. 'horse_id')
             if col in artifacts:
-                le = artifacts[col]
-                valid_classes = set(le.classes_)
-                # Handle unknown
-                df[col] = df[col].astype(str).map(lambda x: x if x in valid_classes else "unknown")
-                if "unknown" not in valid_classes:
-                    # Fallback to 0 index class if "unknown" not explicitly trained
-                    fallback = list(valid_classes)[0]
-                    df[col] = df[col].map(lambda x: x if x in valid_classes else fallback)
-                
-                df[col] = le.transform(df[col]).astype(int)
+                df = feat.apply_label_encoder(df, col, artifacts[col])
 
     # Rank Class (for evaluation if rank exists)
     if 'rank' in df.columns:

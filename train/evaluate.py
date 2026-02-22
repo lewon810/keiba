@@ -5,6 +5,7 @@ import argparse
 from . import settings
 from . import preprocess
 from . import scraper_bulk
+from .features import FEATURES
 
 def evaluate(start_year, end_year, csv_file=None, min_score=None, power=None):
     print(f"--- Evaluaton Mode: {start_year}-{end_year} ---")
@@ -72,16 +73,7 @@ def evaluate(start_year, end_year, csv_file=None, min_score=None, power=None):
     df = preprocess.transform(raw_df, artifacts)
     
     # 4. Predict
-    features = [
-        'jockey_win_rate', 'trainer_win_rate', 'horse_id', 'jockey_id', 'trainer_id',
-        'waku', 'umaban', 'course_type', 'distance', 'weather', 'condition',
-        'lag1_rank', 'lag1_speed_index', 'lag1_last_3f', 'interval', 'weight_diff',
-        'sire_id', 'damsire_id', 'running_style',
-        'sire_win_rate', 'damsire_win_rate',
-        'course_type_win_rate', 'dist_cat_win_rate',
-        'popularity', 'horse_age', 'num_runners',
-        'lag2_rank', 'lag3_rank', 'avg_last3_rank'
-    ]
+    features = FEATURES
     
     if df.empty:
         print("No data available for prediction after preprocessing.")
@@ -119,11 +111,11 @@ def evaluate(start_year, end_year, csv_file=None, min_score=None, power=None):
         total_bet = 0
         total_return = 0
 
-        # Betting Strategy Logic
-        betting_type = config.get('betting_type', 'win')
+        # Betting Strategy Logic — settingsから取得
+        betting_type = getattr(settings, 'BETTING_TYPE', 'win')
         
         # Determine effective min_roi_score
-        config_min_score = config.get('min_betting_roi_score', 0.0)
+        config_min_score = getattr(settings, 'MIN_BETTING_ROI_SCORE', 0.0)
         min_roi_score = min_score if min_score is not None else config_min_score
         
         print(f"Simulating Betting Strategy: {betting_type} (Min Score: {min_roi_score})")
