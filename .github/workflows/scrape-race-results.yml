@@ -9,7 +9,7 @@ on:
       start_year:
         description: 'Start Year (e.g. 2023)'
         required: false
-        default: '2016'
+        default: '2010'
         type: string
       end_year:
         description: 'End Year (e.g. 2023, leave empty for current year)'
