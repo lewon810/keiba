@@ -6,7 +6,7 @@ on:
       train_start:
         description: 'Training Start Year'
         required: true
-        default: '2016'
+        default: '2010'
       train_start_month:
         description: 'Training Start Month (1-12)'
         required: false
