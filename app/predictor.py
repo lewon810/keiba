@@ -17,11 +17,11 @@ except ImportError:
     get_dist_cat = None
     apply_label_encoder = None
 
-def predict(race_data, return_df=False, power=None):
+def predict(race_data, return_df=False):
     """
     Takes race data (list of dicts) and returns predictions using the trained model.
     If return_df is True, returns the pandas DataFrame with scores.
-    power: exponent for score calculation (P^power * Odds), defaults to settings.POWER_EXPONENT
+    Score = win_prob * odds (LambdaRankスコアベース)
     """
     if not race_data:
         return "No data to predict."
@@ -201,24 +201,12 @@ def predict(race_data, return_df=False, power=None):
                 return 0.0
         df['odds_val'] = df['odds'].apply(parse_odds)
 
-        # Calculate Score: (Win Prob)^4 * Odds
-        # If odds are missing (0.0), score becomes 0.
-        # Fallback to win_prob if odds are missing? 
-        # Strategy implies odds are crucial. If odds 0 (e.g. new race w/o odds), 
-        # this strategy fails. Assuming odds exist or fallback to prob.
-        
-        # Hybrid Score: Use Expectation if odds exist, else raw prob
-        use_power = power if power is not None else settings.POWER_EXPONENT
+        # スコア計算: LambdaRankスコア × オッズ
+        # オッズがない場合はwin_probをフォールバック
         df['score'] = df.apply(
-            lambda x: (x['win_prob'] ** use_power) * x['odds_val'] if x['odds_val'] > 0 else x['win_prob'], 
+            lambda x: x['win_prob'] * x['odds_val'] if x['odds_val'] > 0 else x['win_prob'], 
             axis=1
         )
-
-        # Normalize scores to 0-1 range for better readability
-        # Note: Expectation scores can be widely distributed
-        # User requested RAW score: P^4 * Odds
-        # normalization removed
-        pass
 
         # Rank by Score (Descending)
         df = df.sort_values('score', ascending=False)
@@ -231,7 +219,7 @@ def predict(race_data, return_df=False, power=None):
         context_weather = race_data[0].get('weather', 'Unknown')
         context_distance = race_data[0].get('distance', 'Unknown')
 
-        result_lines = [f"Prediction Ranking (Score = Prob^{use_power} * Odds):"]
+        result_lines = ["Prediction Ranking (Score = Prob * Odds):"]
         result_lines.append(f"Context: {context_weather} / {context_distance}m")
         result_lines.append("-" * 40)
 

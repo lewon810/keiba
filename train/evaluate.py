@@ -7,7 +7,7 @@ from . import preprocess
 from . import scraper_bulk
 from .features import FEATURES
 
-def evaluate(start_year, end_year, csv_file=None, min_score=None, power=None):
+def evaluate(start_year, end_year, csv_file=None, min_score=None):
     print(f"--- Evaluaton Mode: {start_year}-{end_year} ---")
     
     # 1. Load Model & Artifacts
@@ -79,17 +79,18 @@ def evaluate(start_year, end_year, csv_file=None, min_score=None, power=None):
         print("No data available for prediction after preprocessing.")
         return {}
 
-    print("Predicting...")
-    # LightGBM Multiclass returns (N, 4) probability matrix
-    # Class 0 is Rank 1 (Winner)
-    pred_probs = model.predict(df[features])
+    # モデルの出力を一時保存
+    df['race_id'] = raw_df['race_id'].astype(str)
+    df['temp_score'] = model.predict(df[features])
     
-    # Use Probability of Winning (Class 0) as base score
-    # Handle both 1D (binary) and 2D (multiclass) outputs just in case
-    if pred_probs.ndim > 1:
-        df['win_prob'] = pred_probs[:, 0]
-    else:
-        df['win_prob'] = pred_probs
+    # レース（race_id）単位で softmax を適用して win_prob を算出
+    import numpy as np
+    def softmax(group):
+        exps = np.exp(group - group.max())
+        return exps / exps.sum()
+        
+    df['win_prob'] = df.groupby('race_id')['temp_score'].transform(softmax)
+    df = df.drop(columns=['temp_score'])
     
     # 5. Metrics (Ranking Accuracy)
     metrics = {}
@@ -99,11 +100,8 @@ def evaluate(start_year, end_year, csv_file=None, min_score=None, power=None):
         df['rank'] = pd.to_numeric(raw_df['rank'], errors='coerce')
         df['odds'] = pd.to_numeric(raw_df['odds'], errors='coerce').fillna(0)
         
-        # Calculate Expectation Score: (Win Prob)^power * Odds
-        # Use provided power or default
-        use_power = power if power is not None else settings.POWER_EXPONENT
-        print(f"Using Score Power Exponent: {use_power}")
-        df['score'] = (df['win_prob'] ** use_power) * df['odds']
+        # スコア計算: LambdaRankスコア × オッズ
+        df['score'] = df['win_prob'] * df['odds']
         
         # Metrics Initialization
         total_races = 0
@@ -235,7 +233,6 @@ if __name__ == "__main__":
     parser.add_argument("--end", type=int, default=2025)
     parser.add_argument("--csv", type=str, help="Path to existing CSV file")
     parser.add_argument("--min_score", type=float, help="Override min_betting_roi_score")
-    parser.add_argument("--power", type=float, default=settings.POWER_EXPONENT, help="Exponent for Win Prob")
     args = parser.parse_args()
     
-    evaluate(args.start, args.end, csv_file=args.csv, min_score=args.min_score, power=args.power)
+    evaluate(args.start, args.end, csv_file=args.csv, min_score=args.min_score)

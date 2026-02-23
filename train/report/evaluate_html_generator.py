@@ -15,31 +15,23 @@ from train import evaluate
 from train import settings
 from train.features import FEATURES, PLACE_MAP_SHORT
 
-def generate_report(start_year, end_year, output_file="evaluate.html", power_min=None, power_max=None, race_min=None, race_max=None, start_month=None, end_month=None):
+def generate_report(start_year, end_year, output_file="evaluate.html", race_min=None, race_max=None, start_month=None, end_month=None):
     if start_month and end_month:
         print(f"Generating Evaluation Report for {start_year}/{start_month}-{end_year}/{end_month}...")
     else:
         print(f"Generating Evaluation Report for {start_year}-{end_year}...")
-    
-    # ... (Defaults for power skipped in this diff, assuming context handles it or I include it)
-    # Re-stating defaults to be safe with replace
-    p_min = int(power_min) if power_min is not None else settings.POWER_EXPONENT
-    p_max = int(power_max) if power_max is not None else p_min
-    power_values = list(range(p_min, p_max + 1))
     
     # Place Codes Mapping — 共通定数を使用
     place_map = PLACE_MAP_SHORT
     
     r_min = int(race_min) if race_min is not None else 1
     r_max = int(race_max) if race_max is not None else 12
-    print(f"Evaluating Power Exponents: {power_values}")
     print(f"Evaluating Race Numbers: {r_min} to {r_max}")
     
     min_scores = [round(x * 0.1, 1) for x in range(0, 11)] # 0.0 to 1.0
     
-    # Store results for all powers
-    # Structure: {power: summary_df}
-    all_power_results = {}
+    # 評価結果の格納
+    result_summary = None
 
     # 1. Load Data & Model (Once)
     from train import scraper_bulk, preprocess
@@ -82,15 +74,19 @@ def generate_report(start_year, end_year, output_file="evaluate.html", power_min
     # Features — 共通定数を使用
     features = FEATURES
     
-    print("Predicting...")
-    pred_probs = model.predict(df_base[features])
-    if pred_probs.ndim > 1:
-        df_base['win_prob'] = pred_probs[:, 0]
-    else:
-        df_base['win_prob'] = pred_probs
+    # 3. Predict (Raw logits)
+    df_base['win_prob_raw'] = model.predict(df_base[FEATURES])
+    df_base['race_id_raw'] = raw_df['race_id'].astype(str)
+    
+    # レース単位の softmax
+    def softmax(group):
+        exps = np.exp(group - group.max())
+        return exps / exps.sum()
+    df_base['win_prob'] = df_base.groupby('race_id_raw')['win_prob_raw'].transform(softmax)
         
     # Attach Metadata
-    df_base['race_id'] = raw_df['race_id'].astype(str)
+    # Use raw labels for readability in report
+    df_base['race_id'] = df_base['race_id_raw']
     df_base['place_code'] = df_base['race_id'].str[4:6]
     df_base['rank'] = pd.to_numeric(raw_df['rank'], errors='coerce')
     df_base['odds'] = pd.to_numeric(raw_df['odds'], errors='coerce').fillna(0)
@@ -99,61 +95,55 @@ def generate_report(start_year, end_year, output_file="evaluate.html", power_min
     df_base = df_base[df_base['place_code'].notna()]
     unique_places = sorted(df_base['place_code'].unique().astype(str))
 
-    # --- Power Loop ---
-    for exponent in power_values:
-        print(f"--- Simulating for Power: {exponent} ---")
-        
-        # Use a copy to calculate score
-        df = df_base.copy()
-        df['score'] = (df['win_prob'] ** exponent) * df['odds']
-        
-        summary_data = [] # For this exponent
-        
-        for score_thresh in min_scores:
-            # Group by Place
-            for p_code in unique_places:
-                place_name = place_map.get(p_code, f"Place {p_code}")
-                place_df = df[df['place_code'] == p_code]
+    # スコア計算: LambdaRankスコア × オッズ
+    df_base['score'] = df_base['win_prob'] * df_base['odds']
+    
+    summary_data = []
+    
+    for score_thresh in min_scores:
+        # Group by Place
+        for p_code in unique_places:
+            place_name = place_map.get(p_code, f"Place {p_code}")
+            place_df = df_base[df_base['place_code'] == p_code]
+            
+            # Get Top 1 per race
+            place_df_sorted = place_df.sort_values(['race_id', 'score'], ascending=[True, False])
+            top1_df = place_df_sorted.groupby('race_id').head(1)
+            
+            # Filter by threshold
+            bet_df = top1_df[top1_df['score'] >= score_thresh]
+            
+            bets = len(bet_df)
+            if bets > 0:
+                cost = bets * 100
+                hits_df = bet_df[bet_df['rank'] == 1]
+                hits = len(hits_df)
+                place_df_hits = bet_df[bet_df['rank'] <= 3]
+                hits_top3 = len(place_df_hits)
+                return_amt = (hits_df['odds'] * 100).sum()
                 
-                # Get Top 1 per race
-                place_df_sorted = place_df.sort_values(['race_id', 'score'], ascending=[True, False])
-                top1_df = place_df_sorted.groupby('race_id').head(1)
-                
-                # Filter by threshold
-                bet_df = top1_df[top1_df['score'] >= score_thresh]
-                
-                bets = len(bet_df)
-                if bets > 0:
-                    cost = bets * 100
-                    hits_df = bet_df[bet_df['rank'] == 1]
-                    hits = len(hits_df)
-                    place_df_hits = bet_df[bet_df['rank'] <= 3]
-                    hits_top3 = len(place_df_hits)
-                    return_amt = (hits_df['odds'] * 100).sum()
-                    
-                    roi = return_amt / cost * 100
-                    hit_rate = hits / bets * 100
-                    place_rate = hits_top3 / bets * 100
-                else:
-                    bets, hits, hits_top3, return_amt, cost = 0, 0, 0, 0, 0
-                    roi, hit_rate, place_rate = 0, 0, 0
-                
-                summary_data.append({
-                    'min_score': score_thresh,
-                    'place_code': p_code,
-                    'place_name': place_name,
-                    'bets': bets,
-                    'hits': hits,
-                    'hits_top3': hits_top3,
-                    'hit_rate': hit_rate,
-                    'place_rate': place_rate,
-                    'roi': roi,
-                    'return': return_amt,
-                    'cost': cost
-                })
-        
-        # Store summary for this power
-        all_power_results[exponent] = pd.DataFrame(summary_data)
+                roi = return_amt / cost * 100
+                hit_rate = hits / bets * 100
+                place_rate = hits_top3 / bets * 100
+            else:
+                bets, hits, hits_top3, return_amt, cost = 0, 0, 0, 0, 0
+                roi, hit_rate, place_rate = 0, 0, 0
+            
+            summary_data.append({
+                'min_score': score_thresh,
+                'place_code': p_code,
+                'place_name': place_name,
+                'bets': bets,
+                'hits': hits,
+                'hits_top3': hits_top3,
+                'hit_rate': hit_rate,
+                'place_rate': place_rate,
+                'roi': roi,
+                'return': return_amt,
+                'cost': cost
+            })
+    
+    result_summary = pd.DataFrame(summary_data)
 
     # C. Generate Report
     # 期間表示用の文字列を構築
@@ -181,44 +171,39 @@ def generate_report(start_year, end_year, output_file="evaluate.html", power_min
         </style>
     </head>
     <body>
-        <h1>Evaluation Report (Power Comparison)</h1>
+        <h1>Evaluation Report</h1>
         <p><strong>Evaluation Period:</strong> {eval_period}</p>
-        <p><strong>Powers Tested:</strong> {power_values}</p>
         <p><strong>Generated:</strong> {pd.Timestamp.now()}</p>
     """
     
-    # 1. Comparative Chart: ROI vs Score (For all powers)
-    # Aggregating All Places
-    html_content += "<h2>ROI Comparison by Power Exponent</h2>"
+    # 1. Performance Chart: ROI vs Score
+    html_content += "<h2>ROI and Hit Rate by Score Threshold</h2>"
     
     plt.figure(figsize=(10, 6))
     
-    best_configs = []
+    agg = result_summary.groupby('min_score').agg({'bets': 'sum', 'cost': 'sum', 'return': 'sum', 'hits': 'sum'}).reset_index()
+    agg['roi'] = (agg['return'] / agg['cost'] * 100).fillna(0)
+    agg['hit_rate'] = (agg['hits'] / agg['bets'] * 100).fillna(0)
     
-    for pow_val, res_df in all_power_results.items():
-        # Aggregate across all places
-        agg = res_df.groupby('min_score').agg({'bets': 'sum', 'cost': 'sum', 'return': 'sum'}).reset_index()
-        agg['roi'] = (agg['return'] / agg['cost'] * 100).fillna(0)
-        
-        plt.plot(agg['min_score'], agg['roi'], marker='o', label=f'Power {pow_val}')
-        
-        # Find best ROI (with min bets > 10 to avoid noise?)
-        valid_agg = agg[agg['bets'] >= 10]
-        if not valid_agg.empty:
-            best_row = valid_agg.loc[valid_agg['roi'].idxmax()]
-            best_configs.append({
-                'Power': pow_val,
-                'Best ROI': best_row['roi'],
-                'At Score': best_row['min_score'],
-                'Bets': best_row['bets']
-            })
-            
-    plt.axhline(100, color='red', linestyle='--', label='Break Even')
-    plt.title("ROI vs Min Score Threshold (All Courses)")
+    plt.plot(agg['min_score'], agg['roi'], marker='o', label='ROI (%)')
+    plt.plot(agg['min_score'], agg['hit_rate'], marker='x', label='Hit Rate (%)')
+    
+    plt.axhline(100, color='red', linestyle='--', label='Break Even (ROI)')
+    plt.title("Performance vs Min Score Threshold")
     plt.xlabel("Min Score")
-    plt.ylabel("ROI (%)")
+    plt.ylabel("Value (%)")
     plt.grid(True)
     plt.legend()
+    
+    best_configs = []
+    valid_agg = agg[agg['bets'] >= 10]
+    if not valid_agg.empty:
+        best_row = valid_agg.loc[valid_agg['roi'].idxmax()]
+        best_configs.append({
+            'Best ROI': best_row['roi'],
+            'At Score': best_row['min_score'],
+            'Bets': best_row['bets']
+        })
     
     buf = BytesIO()
     plt.savefig(buf, format='png')
@@ -255,26 +240,25 @@ def generate_report(start_year, end_year, output_file="evaluate.html", power_min
     else:
         html_content += "<p>No configurations with >10 bets found.</p>"
 
-    # 3. Detailed Tables per Power
-    for pow_val, res_df in all_power_results.items():
-        html_content += f"<h2>Detailed Metrics (Power = {pow_val})</h2>"
-        
-        # Overall by score
-        agg = res_df.groupby('min_score').agg({
-            'bets': 'sum', 'hits': 'sum', 'cost': 'sum', 'return': 'sum', 'hits_top3': 'sum'
-        }).reset_index()
-        agg['roi'] = (agg['return'] / agg['cost'] * 100).fillna(0)
-        agg['hit_rate'] = (agg['hits'] / agg['bets'] * 100).fillna(0)
-        agg['place_rate'] = (agg['hits_top3'] / agg['bets'] * 100).fillna(0)
-        
-        cols = ['min_score', 'bets', 'hit_rate', 'place_rate', 'roi', 'return']
-        html_content += f"<h3>Overall by Threshold</h3>"
-        html_content += agg[cols].to_html(classes='table', float_format="%.2f", index=False)
-        
-        # By Place
-        html_content += f"<h3>ROI by Racecourse</h3>"
-        pivot_roi = res_df.pivot(index='min_score', columns='place_name', values='roi')
-        html_content += pivot_roi.to_html(classes='table', float_format="%.1f%%", na_rep="-")
+    # 3. Detailed Metrics
+    html_content += f"<h2>Detailed Metrics</h2>"
+    
+    # Overall by score
+    agg = result_summary.groupby('min_score').agg({
+        'bets': 'sum', 'hits': 'sum', 'cost': 'sum', 'return': 'sum', 'hits_top3': 'sum'
+    }).reset_index()
+    agg['roi'] = (agg['return'] / agg['cost'] * 100).fillna(0)
+    agg['hit_rate'] = (agg['hits'] / agg['bets'] * 100).fillna(0)
+    agg['place_rate'] = (agg['hits_top3'] / agg['bets'] * 100).fillna(0)
+    
+    cols = ['min_score', 'bets', 'hit_rate', 'place_rate', 'roi', 'return']
+    html_content += f"<h3>Overall by Threshold</h3>"
+    html_content += agg[cols].to_html(classes='table', float_format="%.2f", index=False)
+    
+    # By Place
+    html_content += f"<h3>ROI by Racecourse</h3>"
+    pivot_roi = result_summary.pivot(index='min_score', columns='place_name', values='roi')
+    html_content += pivot_roi.to_html(classes='table', float_format="%.1f%%", na_rep="-")
 
     html_content += "</body></html>"
     
@@ -288,13 +272,11 @@ if __name__ == "__main__":
     parser.add_argument("--start", type=int, default=2025)
     parser.add_argument("--end", type=int, default=2025)
     parser.add_argument("--output", type=str, default="evaluate.html")
-    parser.add_argument("--power_min", type=int, default=None, help="Min Power")
-    parser.add_argument("--power_max", type=int, default=None, help="Max Power")
     parser.add_argument("--race_min", type=int, default=None, help="Min Race No")
     parser.add_argument("--race_max", type=int, default=None, help="Max Race No")
     parser.add_argument("--start_month", type=int, default=None, help="Start Month (1-12)")
     parser.add_argument("--end_month", type=int, default=None, help="End Month (1-12)")
     args = parser.parse_args()
     
-    generate_report(args.start, args.end, args.output, args.power_min, args.power_max, args.race_min, args.race_max, args.start_month, args.end_month)
+    generate_report(args.start, args.end, args.output, args.race_min, args.race_max, args.start_month, args.end_month)
 

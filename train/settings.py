@@ -12,9 +12,6 @@ MODEL_PATH = os.path.join(MODEL_DIR, 'lgbm_ranker_v2.pkl')
 CATEGORY_COLS = ['jockey_id', 'horse_id', 'trainer_id', 'course_type', 'weather', 'condition', 'sire_id', 'damsire_id', 'running_style']
 NUM_CLASSES = 1 # Ranker output is 1D score (previously 4 for classification)
 
-# Prediction Settings
-POWER_EXPONENT = 4 # Default exponent for Score = P^n * Odds
-
 # Evaluate Settings（デフォルト値）
 BETTING_TYPE = 'win'
 MIN_BETTING_ROI_SCORE = 0.0

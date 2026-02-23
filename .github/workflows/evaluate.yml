@@ -27,14 +27,7 @@ on:
         description: 'Evaluation Month (1-12)'
         required: false
         default: '11'
-      power_min:
-        description: 'Min Score Exponent (Power)'
-        required: true
-        default: '3'
-      power_max:
-        description: 'Max Score Exponent (Power)'
-        required: true
-        default: '5'
+
       race_min:
         description: 'Min Race No (e.g. 9)'
         required: false
@@ -88,12 +81,10 @@ jobs:
         mkdir -p train/report
         EVAL_YEAR=${{ inputs.eval_year || '2025' }}
         EVAL_MONTH=${{ inputs.eval_month || '11' }}
-        P_MIN=${{ inputs.power_min || '3' }}
-        P_MAX=${{ inputs.power_max || '5' }}
         R_MIN=${{ inputs.race_min || '1' }}
         R_MAX=${{ inputs.race_max || '12' }}
-        echo "Evaluating on $EVAL_YEAR/$EVAL_MONTH | Power $P_MIN-$P_MAX | Race $R_MIN-$R_MAX"
-        python -m train.report.evaluate_html_generator --start $EVAL_YEAR --end $EVAL_YEAR --start_month $EVAL_MONTH --end_month $EVAL_MONTH --output evaluate.html --power_min $P_MIN --power_max $P_MAX --race_min $R_MIN --race_max $R_MAX
+        echo "Evaluating on $EVAL_YEAR/$EVAL_MONTH | Race $R_MIN-$R_MAX"
+        python -m train.report.evaluate_html_generator --start $EVAL_YEAR --end $EVAL_YEAR --start_month $EVAL_MONTH --end_month $EVAL_MONTH --output evaluate.html --race_min $R_MIN --race_max $R_MAX
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4

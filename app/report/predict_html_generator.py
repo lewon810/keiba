@@ -17,7 +17,7 @@ SEX_MAP = {
     'セ': 'Gelding'
 }
 
-def generate_prediction_report(output_file="predict.html", power_min=None, power_max=None):
+def generate_prediction_report(output_file="predict.html"):
     print("Generating Prediction Report (Tabbed View)...")
     
     # Load historical data to check availability
@@ -25,13 +25,7 @@ def generate_prediction_report(output_file="predict.html", power_min=None, power
     has_historical_data = len(history_loader.loader.df) > 0
     print(f"Historical data available: {has_historical_data} ({len(history_loader.loader.df)} records)")
     
-    # Defaults
-    # User requested fixed default power 4, but let's keep args support just in case,
-    # but strictly prioritize showing the single power score primarily.
-    default_p = 4
-    p_min = int(power_min) if power_min is not None else default_p
-    p_max = int(power_max) if power_max is not None else p_min
-    power_values = list(range(p_min, p_max + 1))
+    # Power設定は廃止されました。モデルスコアを直接使用します。
     
     # 1. Determine Target Dates (Today + 6 days)
     # The user requested to include all races for the week, not just weekends.
@@ -69,27 +63,17 @@ def generate_prediction_report(output_file="predict.html", power_min=None, power
                 if not race_data: continue
                 
                 # Predict
-                df_pred = predictor.predict(race_data, return_df=True, power=p_min) # Start with min
+                df_pred = predictor.predict(race_data, return_df=True)
                 
                 if isinstance(df_pred, str): # Error message
                     print(df_pred)
                     continue
                 
-                # Calculate scores
-                def parse_odds(o):
-                    try: return float(o)
-                    except: return 0.0
-                
                 if 'odds_val' not in df_pred.columns:
                      df_pred['odds_val'] = df_pred['odds'].apply(parse_odds)
                      
-                for p in power_values:
-                    col_name = f'Score(P={p})'
-                    df_pred[col_name] = (df_pred['win_prob'] ** p) * df_pred['odds_val']
-                
-                # Sort by default_p if present, else max
-                sort_p = default_p if default_p in power_values else power_values[-1]
-                df_pred = df_pred.sort_values(f'Score(P={sort_p})', ascending=False)
+                # Sort by score
+                df_pred = df_pred.sort_values('score', ascending=False)
                 
                 # Meta
                 weather = "?"
@@ -296,7 +280,7 @@ def generate_prediction_report(output_file="predict.html", power_min=None, power
                                             <th>Jockey</th>
                                             <th>Odds</th>
                                             <th>Win%</th>
-                                            <th>Score (P={default_p})</th>
+                                            <th>Score</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -315,7 +299,7 @@ def generate_prediction_report(output_file="predict.html", power_min=None, power
                         
                         odds = row.get('odds', '---')
                         win_prob = row.get('win_prob', 0) * 100
-                        score = row.get(f'Score(P={default_p})', 0)
+                        score = row.get('score', 0)
                         
                         html_content += f"""
                                         <tr class="{row_class}">
@@ -361,12 +345,6 @@ def generate_prediction_report(output_file="predict.html", power_min=None, power
     print(f"Saved {output_file}")
 
 if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--power_min", type=int, default=None, help="Min Power")
-    parser.add_argument("--power_max", type=int, default=None, help="Max Power")
-    args = parser.parse_args()
-
     # Ensure output dir
     os.makedirs("app/report", exist_ok=True)
-    generate_prediction_report("predict.html", power_min=args.power_min, power_max=args.power_max)
+    generate_prediction_report("predict.html")
