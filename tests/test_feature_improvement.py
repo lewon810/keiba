@@ -55,7 +55,7 @@ class TestFeatureConsistency:
     def test_features_source_of_truth(self):
         """train.features.FEATURES が信頼できる唯一のソースであること"""
         from train.features import FEATURES
-        assert len(FEATURES) == 29, f"特徴量は29個であるべき (実際: {len(FEATURES)})"
+        assert len(FEATURES) == 28, f"特徴量は28個であるべき (実際: {len(FEATURES)})"
     
     def test_no_leakage_features(self):
         """リーケージ特徴量が含まれていないこと"""
@@ -68,19 +68,22 @@ class TestFeatureConsistency:
     def test_new_features_present(self):
         """新しく追加した特徴量が含まれていること"""
         from train.features import FEATURES
-        # popularity_ratio はpopularityの相対化バージョン
         # lag*_rank_norm は絶対着順の 0〜1 正規化バージョン
-        new_features = {'popularity_ratio', 'horse_age', 'num_runners',
-                        'lag2_rank_norm', 'lag3_rank_norm', 'avg_last3_rank_norm'}
+        # popularity_ratio / popularity は除去済み（市場シグナルはオッズに反映済み）
+        new_features = {'horse_age', 'num_runners',
+                        'lag1_rank_norm', 'lag2_rank_norm', 'lag3_rank_norm', 'avg_last3_rank_norm'}
         missing = new_features - set(FEATURES)
         assert not missing, \
             f"FEATURES に新特徴量が不足: {missing}"
     
-    def test_raw_popularity_not_in_features(self):
-        """生の人気順位(絶対値)popularityが特徴量に含まれないこと"""
+    def test_market_bias_features_removed(self):
+        """市場人気直接シグナルの特徴量が除去されていること"""
         from train.features import FEATURES
-        assert 'popularity' not in FEATURES, \
-            "'popularity' は相対値 'popularity_ratio' に置き換えられました"
+        # popularity系のみ除去。jockey/trainer_win_rateは過去実績ベースの固定値なので残す
+        removed = {'popularity_ratio', 'popularity'}
+        found = removed & set(FEATURES)
+        assert not found, \
+            f"市場人気偶重特徴量が残っています: {found}"
 
 
 

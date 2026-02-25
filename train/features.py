@@ -20,9 +20,12 @@ FEATURES = [
     'sire_id', 'damsire_id', 'running_style',
     'sire_win_rate', 'damsire_win_rate',
     'course_type_win_rate', 'dist_cat_win_rate',
-    'popularity_ratio', 'horse_age', 'num_runners',
+    'horse_age', 'num_runners',
     'lag2_rank_norm', 'lag3_rank_norm', 'avg_last3_rank_norm'
 ]
+# 除外した特徴量と理由:
+# - popularity_ratio / popularity: 市場人気のシグナル → オッズに既反映済み
+# jockey_win_rate / trainer_win_rate は過去実績ベースの固定値なので残す
 
 # 競馬場コード → 名称マッピング
 PLACE_MAP = {
