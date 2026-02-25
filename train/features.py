@@ -20,7 +20,7 @@ FEATURES = [
     'sire_id', 'damsire_id', 'running_style',
     'sire_win_rate', 'damsire_win_rate',
     'course_type_win_rate', 'dist_cat_win_rate',
-    'popularity', 'horse_age', 'num_runners',
+    'popularity_ratio', 'horse_age', 'num_runners',
     'lag2_rank', 'lag3_rank', 'avg_last3_rank'
 ]
 

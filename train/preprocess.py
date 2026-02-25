@@ -159,6 +159,11 @@ def preprocess(df):
     # Feature: Number of Runners (出走頭数)
     df['num_runners'] = df.groupby('race_id')['horse_id'].transform('count')
     
+    # Feature: Popularity Ratio (相対人気) — 人気の絶対値ではなく出走頭数に対する相対値
+    # 例: 18頭立て1番人気 → 1/18 ≈ 0.056、18頭立て18番人気 → 1.0
+    # 値が低いほど人気が高い（人気1位で最小値）
+    df['popularity_ratio'] = df['popularity'] / df['num_runners'].replace(0, 1)
+    
     # Feature: Horse Age (馬齢) — horse_id の先頭4桁が生年
     if 'horse_id' in df.columns:
         df['horse_birth_year'] = df['horse_id'].astype(str).str[:4]
@@ -433,6 +438,11 @@ def transform(df, artifacts):
     
     # Feature: Number of Runners (出走頭数)
     df['num_runners'] = df.groupby('race_id')['horse_id'].transform('count')
+    
+    # Feature: Popularity Ratio (相対人気) — 人気の絶対値ではなく出走頭数に対する相対値
+    # 例: 18頭立て1番人気 → 1/18 ≈ 0.056、18頭立て18番人気 → 1.0
+    # 値が低いほど人気が高い（人気1位で最小値）
+    df['popularity_ratio'] = df['popularity'] / df['num_runners'].replace(0, 1)
     
     # Feature: Horse Age (馬齢) — horse_id の先頭4桁が生年
     if 'horse_id' in df.columns and 'year' in df.columns:

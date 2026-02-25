@@ -68,10 +68,17 @@ class TestFeatureConsistency:
     def test_new_features_present(self):
         """新しく追加した特徴量が含まれていること"""
         from train.features import FEATURES
-        new_features = {'popularity', 'horse_age', 'num_runners', 'lag2_rank', 'lag3_rank', 'avg_last3_rank'}
+        # popularity_ratio はpopularityの相対化バージョン
+        new_features = {'popularity_ratio', 'horse_age', 'num_runners', 'lag2_rank', 'lag3_rank', 'avg_last3_rank'}
         missing = new_features - set(FEATURES)
         assert not missing, \
             f"FEATURES に新特徴量が不足: {missing}"
+    
+    def test_raw_popularity_not_in_features(self):
+        """生の人気順位(絶対値)popularityが特徴量に含まれないこと"""
+        from train.features import FEATURES
+        assert 'popularity' not in FEATURES, \
+            "'popularity' は相対値 'popularity_ratio' に置き換えられました"
 
 
 
@@ -111,15 +118,18 @@ class TestPreprocessNewFeatures:
                 })
         return pd.DataFrame(data)
     
-    def test_popularity_feature(self):
-        """popularity 特徴量が正しく生成されること"""
+    def test_popularity_ratio_feature(self):
+        """popularity_ratio 特徴量が正しく生成されること（0〜1の範囲）"""
         from train.preprocess import preprocess
         df = self._make_sample_df()
         result_df, artifacts = preprocess(df)
         
-        assert 'popularity' in result_df.columns
-        assert result_df['popularity'].notna().all()
-        assert (result_df['popularity'] >= 1).all()
+        assert 'popularity_ratio' in result_df.columns
+        assert result_df['popularity_ratio'].notna().all()
+        # popularity_ratio = popularity / num_runners、値は0〜1の範囲
+        assert (result_df['popularity_ratio'] > 0).all()
+        assert (result_df['popularity_ratio'] <= 1.0).all()
+
     
     def test_num_runners_feature(self):
         """num_runners 特徴量が正しく生成されること"""
@@ -235,7 +245,7 @@ class TestTransformNewFeatures:
         new_df = self._make_sample_df()
         result_df = transform(new_df, artifacts)
         
-        new_features = ['popularity', 'num_runners', 'horse_age', 
+        new_features = ['popularity_ratio', 'num_runners', 'horse_age', 
                         'lag2_rank', 'lag3_rank', 'avg_last3_rank']
         for feat in new_features:
             assert feat in result_df.columns, f"{feat} が transform() の出力にありません"
