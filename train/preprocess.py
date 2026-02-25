@@ -215,6 +215,14 @@ def preprocess(df):
     # Average of last 3 ranks (直近3走の平均着順)
     df['avg_last3_rank'] = df[['lag1_rank', 'lag2_rank', 'lag3_rank']].mean(axis=1)
     
+    # 正規化: 絶対着順(1-99)を 0.0〜1.0 スケールへ変換
+    # clip(1, 10)で10着以降は区別せず、(val-1)/9.0で正規化
+    # 1着→0.0（最良）, 10着以上→1.0（最悪）
+    df['lag1_rank_norm'] = (df['lag1_rank'].clip(1, 10) - 1) / 9.0
+    df['lag2_rank_norm'] = (df['lag2_rank'].clip(1, 10) - 1) / 9.0
+    df['lag3_rank_norm'] = (df['lag3_rank'].clip(1, 10) - 1) / 9.0
+    df['avg_last3_rank_norm'] = (df['avg_last3_rank'].clip(1, 10) - 1) / 9.0
+    
     # Lag 1: Previous Speed Index
     df['lag1_speed_index'] = df.groupby('horse_id')['speed_index'].shift(1).fillna(0)
     
@@ -502,6 +510,13 @@ def transform(df, artifacts):
     df['lag2_rank'] = df.groupby('horse_id')['rank'].shift(2).fillna(99).astype(int)
     df['lag3_rank'] = df.groupby('horse_id')['rank'].shift(3).fillna(99).astype(int)
     df['avg_last3_rank'] = df[['lag1_rank', 'lag2_rank', 'lag3_rank']].mean(axis=1)
+    
+    # 正規化: 絶対着順(1-99)を 0.0〜1.0 スケールへ変換
+    # 1着→0.0（最良）, 10着以上→1.0（最悪）
+    df['lag1_rank_norm'] = (df['lag1_rank'].clip(1, 10) - 1) / 9.0
+    df['lag2_rank_norm'] = (df['lag2_rank'].clip(1, 10) - 1) / 9.0
+    df['lag3_rank_norm'] = (df['lag3_rank'].clip(1, 10) - 1) / 9.0
+    df['avg_last3_rank_norm'] = (df['avg_last3_rank'].clip(1, 10) - 1) / 9.0
     
     df['lag1_speed_index'] = df.groupby('horse_id')['speed_index'].shift(1).fillna(0)
     

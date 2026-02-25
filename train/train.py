@@ -33,7 +33,10 @@ def train_model(start_year, end_year, start_month=None, end_month=None):
     
     # 3. Train with LambdaRank
     features = FEATURES
-    target = 'rank'  # LambdaRank用
+    target = 'rank_class'  # 0=1着, 1=2-3着, 2=4-5着, 3=6着以降
+    # rank（着順）ではなく rank_class を使用する理由:
+    # rank は popularity と強相関（0.59）のため、モデルが人気予測器になってしまう。
+    # rank_class は4クラスの粗い分類なので過剰な順位学習を防ぐ。
     
     print(f"Features ({len(features)}): {features}")
     

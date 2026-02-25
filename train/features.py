@@ -16,12 +16,12 @@ import pandas as pd
 FEATURES = [
     'jockey_win_rate', 'trainer_win_rate', 'horse_id', 'jockey_id', 'trainer_id',
     'waku', 'umaban', 'course_type', 'distance', 'weather', 'condition',
-    'lag1_rank', 'lag1_speed_index', 'lag1_last_3f', 'interval', 'weight_diff',
+    'lag1_rank_norm', 'lag1_speed_index', 'lag1_last_3f', 'interval', 'weight_diff',
     'sire_id', 'damsire_id', 'running_style',
     'sire_win_rate', 'damsire_win_rate',
     'course_type_win_rate', 'dist_cat_win_rate',
     'popularity_ratio', 'horse_age', 'num_runners',
-    'lag2_rank', 'lag3_rank', 'avg_last3_rank'
+    'lag2_rank_norm', 'lag3_rank_norm', 'avg_last3_rank_norm'
 ]
 
 # 競馬場コード → 名称マッピング

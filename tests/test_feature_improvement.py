@@ -69,7 +69,9 @@ class TestFeatureConsistency:
         """新しく追加した特徴量が含まれていること"""
         from train.features import FEATURES
         # popularity_ratio はpopularityの相対化バージョン
-        new_features = {'popularity_ratio', 'horse_age', 'num_runners', 'lag2_rank', 'lag3_rank', 'avg_last3_rank'}
+        # lag*_rank_norm は絶対着順の 0〜1 正規化バージョン
+        new_features = {'popularity_ratio', 'horse_age', 'num_runners',
+                        'lag2_rank_norm', 'lag3_rank_norm', 'avg_last3_rank_norm'}
         missing = new_features - set(FEATURES)
         assert not missing, \
             f"FEATURES に新特徴量が不足: {missing}"
@@ -152,14 +154,22 @@ class TestPreprocessNewFeatures:
         assert (result_df['horse_age'] == 5).all()
     
     def test_lag2_lag3_features(self):
-        """lag2_rank, lag3_rank, avg_last3_rank が生成されること"""
+        """lag2_rank_norm, lag3_rank_norm, avg_last3_rank_norm が生成されること"""
         from train.preprocess import preprocess
         df = self._make_sample_df()
         result_df, artifacts = preprocess(df)
         
+        # 元の絶対値カラムも存在
         assert 'lag2_rank' in result_df.columns
         assert 'lag3_rank' in result_df.columns
         assert 'avg_last3_rank' in result_df.columns
+        # 正規化版カラムも存在し、0.0〜1.0の範囲
+        assert 'lag1_rank_norm' in result_df.columns
+        assert 'lag2_rank_norm' in result_df.columns
+        assert 'lag3_rank_norm' in result_df.columns
+        assert 'avg_last3_rank_norm' in result_df.columns
+        assert (result_df['lag1_rank_norm'] >= 0.0).all()
+        assert (result_df['lag1_rank_norm'] <= 1.0).all()
     
     def test_running_style_is_lag_based(self):
         """running_style が前走ベースで算出されていること（リーケージなし）"""
@@ -246,7 +256,7 @@ class TestTransformNewFeatures:
         result_df = transform(new_df, artifacts)
         
         new_features = ['popularity_ratio', 'num_runners', 'horse_age', 
-                        'lag2_rank', 'lag3_rank', 'avg_last3_rank']
+                        'lag1_rank_norm', 'lag2_rank_norm', 'lag3_rank_norm', 'avg_last3_rank_norm']
         for feat in new_features:
             assert feat in result_df.columns, f"{feat} が transform() の出力にありません"
 
