@@ -67,8 +67,8 @@ jobs:
       run: |
         export PYTHONPATH=$PYTHONPATH:.
         # Use inputs if available (workflow_dispatch), otherwise defaults for schedule
-        START=${{ inputs.train_start || '2016' }}
-        END=${{ inputs.train_end || '2024' }}
+        START=${{ inputs.train_start || '2010' }}
+        END=${{ inputs.train_end || '2025' }}
         START_MONTH=${{ inputs.train_start_month || '1' }}
         END_MONTH=${{ inputs.train_end_month || '10' }}
         echo "Training from $START/$START_MONTH to $END/$END_MONTH"

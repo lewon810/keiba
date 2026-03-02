@@ -11,7 +11,6 @@ from io import BytesIO
 # Add project root
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from train import evaluate
 from train import settings
 from train.features import FEATURES, PLACE_MAP_SHORT
 
@@ -67,16 +66,22 @@ def generate_report(start_year, end_year, output_file="evaluate.html", race_min=
         print("No data after filtering.")
         return
     
+    # インデックスを揃えてから transform（transform内で sort_values が行われるため）
+    raw_df = raw_df.reset_index(drop=True)
+
     # Transform
     print("Transforming...")
     df_base = preprocess.transform(raw_df, artifacts)
+    # transform 後もインデックスをリセットして raw_df と対応を保証
+    df_base = df_base.reset_index(drop=True)
     
     # Features — 共通定数を使用
     features = FEATURES
     
     # 3. Predict (Raw logits)
     df_base['win_prob_raw'] = model.predict(df_base[FEATURES])
-    df_base['race_id_raw'] = raw_df['race_id'].astype(str)
+    # race_id・rank・odds は transform 後の df_base からインデックス整合で取得
+    df_base['race_id_raw'] = df_base['race_id'].astype(str) if 'race_id' in df_base.columns else raw_df['race_id'].astype(str)
     
     # レース単位の softmax
     def softmax(group):
@@ -88,8 +93,17 @@ def generate_report(start_year, end_year, output_file="evaluate.html", race_min=
     # Use raw labels for readability in report
     df_base['race_id'] = df_base['race_id_raw']
     df_base['place_code'] = df_base['race_id'].str[4:6]
-    df_base['rank'] = pd.to_numeric(raw_df['rank'], errors='coerce')
-    df_base['odds'] = pd.to_numeric(raw_df['odds'], errors='coerce').fillna(0)
+    # rank・odds は transform の入力として渡した raw_df から取得
+    # ただし transform 内の sort_values でインデックスが変化するため、
+    # raw_df 側も同じ sort でマッピングする
+    # → transform() が race_id カラムを保持しているため、race_id ベースでマージする
+    raw_meta = raw_df[['race_id', 'rank', 'odds']].copy()
+    raw_meta['race_id'] = raw_meta['race_id'].astype(str)
+    raw_meta['rank'] = pd.to_numeric(raw_meta['rank'], errors='coerce')
+    raw_meta['odds'] = pd.to_numeric(raw_meta['odds'], errors='coerce').fillna(0)
+    df_base = df_base.merge(raw_meta, on='race_id', how='left', suffixes=('_enc', ''))
+    # rank_enc / odds_enc 列が生じた場合は削除
+    df_base = df_base.drop(columns=[c for c in df_base.columns if c.endswith('_enc')], errors='ignore')
     
     # Pre-filtering for simulation
     df_base = df_base[df_base['place_code'].notna()]
@@ -257,7 +271,7 @@ def generate_report(start_year, end_year, output_file="evaluate.html", race_min=
     
     # By Place
     html_content += f"<h3>ROI by Racecourse</h3>"
-    pivot_roi = result_summary.pivot(index='min_score', columns='place_name', values='roi')
+    pivot_roi = result_summary.pivot_table(index='min_score', columns='place_name', values='roi', aggfunc='first')
     html_content += pivot_roi.to_html(classes='table', float_format="%.1f%%", na_rep="-")
 
     html_content += "</body></html>"

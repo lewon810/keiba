@@ -15,21 +15,16 @@ def load_data(start_year=None, end_year=None, start_month=None, end_month=None):
     if start_year and end_year:
         target_years = range(start_year, end_year + 1)
         for f in files:
-            # Extract year assume format "results_2024.csv"
+            # "results_YYYY.csv" 形式のみ対象（アンダースコアがある場合はスキップ）
             try:
-                # Simplistic extraction
                 parts = f.replace('results_', '').replace('.csv', '')
-                if '_' in parts: # results_2020_2021.csv case? usually just results_YYYY
-                     # If scraper_bulk outputs range? default scraper outputs results_YYYY.csv
-                     # Let's rely on checking file year if possible
-                     y = int(parts)
-                     if y in target_years:
-                         target_files.append(f)
-                else:
-                     y = int(parts)
-                     if y in target_years:
-                         target_files.append(f)
-            except:
+                if '_' in parts:
+                    # results_YYYY_ZZZZ.csv のような形式は対象外
+                    continue
+                y = int(parts)
+                if y in target_years:
+                    target_files.append(f)
+            except (ValueError, TypeError):
                 pass
     else:
         target_files = files

@@ -38,9 +38,9 @@ class TestFeatureConsistency:
     def test_all_files_use_shared_features(self):
         """全ファイルが train.features.FEATURES を参照していること"""
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        # evaluate.py / evaluate_model.py は削除済み（ワークフロー未使用）
         files = {
             'train.py': os.path.join(base_dir, 'train', 'train.py'),
-            'evaluate.py': os.path.join(base_dir, 'train', 'evaluate.py'),
             'evaluate_html_generator.py': os.path.join(base_dir, 'train', 'report', 'evaluate_html_generator.py'),
             'predictor.py': os.path.join(base_dir, 'app', 'predictor.py'),
         }
