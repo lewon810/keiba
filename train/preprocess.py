@@ -374,16 +374,69 @@ def preprocess(df):
     
     df['weight_diff'] = pd.to_numeric(df['weight_diff'], errors='coerce').fillna(0)
 
-    # Artifacts storage
+    # Feature: Win Streak (直近連勝数) — リーケージなし (shift使用)
+    # 前走から遡って何連勝しているかを計算
+    df['is_win'] = df.get('is_win', (df['rank'] == 1).astype(int))
+
+    def calc_win_streak(group):
+        streak = []
+        count = 0
+        for w in group:
+            streak.append(count)
+            if w == 1:
+                count += 1
+            else:
+                count = 0
+        return pd.Series(streak, index=group.index)
+
+    df['win_streak'] = df.groupby('horse_id')['is_win'].apply(calc_win_streak).reset_index(level=0, drop=True).fillna(0)
+
+    # Feature: Days Since Last Win (前回勝利からの日数) — リーケージなし
+    df['last_win_date'] = df['date'].where(df['is_win'] == 1)
+    df['last_win_date'] = df.groupby('horse_id')['last_win_date'].shift(1).ffill()
+    df['days_since_last_win'] = (df['date'] - df['last_win_date']).dt.days.fillna(999).clip(upper=999)
+    df = df.drop(columns=['last_win_date'], errors='ignore')
+
+    # Feature: Normalized Odds Rank (レース内オッズ順位, 0〜1) — 人気の相対的位置
+    # 0=最も人気、1=最も不人気
+    if 'odds' in df.columns:
+        df['odds_num'] = pd.to_numeric(df['odds'], errors='coerce').fillna(99)
+        df['normalized_odds_rank'] = df.groupby('race_id')['odds_num'].rank(method='min', ascending=True)
+        df['normalized_odds_rank'] = (df['normalized_odds_rank'] - 1) / (df['num_runners'] - 1).replace(0, 1)
+        df = df.drop(columns=['odds_num'], errors='ignore')
+    else:
+        df['normalized_odds_rank'] = 0.5
+
+    # Feature: Place Win Rate (競馬場別馬勝率) — 競馬場適性
+    # race_id[4:6] が競馬場コード
+    df['place_code'] = df['race_id'].astype(str).str[4:6]
+    df['place_win_rate'] = df.groupby(['horse_id', 'place_code'])['is_win'].transform(
+        lambda x: x.shift(1).expanding().mean()
+    ).fillna(0)
+
+    # Artifacts: place_win_rate_map {horse_id: {place_code: rate}}
+    final_place_stats = df.groupby(['horse_id', 'place_code'])['is_win'].agg(['count', 'sum']).reset_index()
+    final_place_stats['rate'] = final_place_stats['sum'] / final_place_stats['count']
+    place_win_rate_map = {}
+    for _, row in final_place_stats.iterrows():
+        hid = str(row['horse_id'])
+        pc = row['place_code']
+        if hid not in place_win_rate_map:
+            place_win_rate_map[hid] = {}
+        place_win_rate_map[hid][pc] = row['rate']
+    df = df.drop(columns=['place_code'], errors='ignore')
+
+
     from sklearn.preprocessing import LabelEncoder
     artifacts = {
         'jockey_win_rate': jockey_win_rate_map,
         'trainer_win_rate': trainer_win_rate_map,
         'sire_win_rate': sire_win_rate_map,
         'damsire_win_rate': damsire_win_rate_map,
-        'aptitude_type': aptitude_type_map, # New
-        'aptitude_dist': aptitude_dist_map, # New
-        'course_stats': None # Placeholder
+        'aptitude_type': aptitude_type_map,
+        'aptitude_dist': aptitude_dist_map,
+        'place_win_rate': place_win_rate_map,  # 競馬場別勝率マップ
+        'course_stats': None
     }
     
     # Save Course Stats for Speed Index (computed earlier) to artifacts
@@ -577,6 +630,53 @@ def transform(df, artifacts):
         df['weight_diff'] = pd.to_numeric(df['weight_diff'], errors='coerce').fillna(0)
     else:
         df['weight_diff'] = 0
+
+    # Feature: Win Streak (直近連勝数) — shift(1)でリーケージなし
+    if 'rank' in df.columns:
+        df['is_win_tmp'] = (pd.to_numeric(df['rank'], errors='coerce') == 1).astype(int)
+    else:
+        df['is_win_tmp'] = 0
+
+    def _calc_win_streak(group):
+        streak = []
+        count = 0
+        for w in group:
+            streak.append(count)
+            count = count + 1 if w == 1 else 0
+        return pd.Series(streak, index=group.index)
+
+    df['win_streak'] = df.groupby('horse_id')['is_win_tmp'].apply(_calc_win_streak).reset_index(level=0, drop=True).fillna(0)
+
+    # Feature: Days Since Last Win (前回勝利からの日数)
+    df['last_win_date_tmp'] = df['date'].where(df['is_win_tmp'] == 1)
+    df['last_win_date_tmp'] = df.groupby('horse_id')['last_win_date_tmp'].shift(1).ffill()
+    df['days_since_last_win'] = (df['date'] - df['last_win_date_tmp']).dt.days.fillna(999).clip(upper=999)
+    df = df.drop(columns=['is_win_tmp', 'last_win_date_tmp'], errors='ignore')
+
+    # Feature: Normalized Odds Rank (レース内オッズ順位, 0〜1)
+    if 'odds' in df.columns:
+        df['odds_num_tmp'] = pd.to_numeric(df['odds'], errors='coerce').fillna(99)
+        df['normalized_odds_rank'] = df.groupby('race_id')['odds_num_tmp'].rank(method='min', ascending=True)
+        df['normalized_odds_rank'] = (df['normalized_odds_rank'] - 1) / (df['num_runners'] - 1).replace(0, 1)
+        df = df.drop(columns=['odds_num_tmp'], errors='ignore')
+    else:
+        df['normalized_odds_rank'] = 0.5
+
+    # Feature: Place Win Rate (競馬場別馬勝率) — artifacts から取得
+    if 'place_win_rate' in artifacts:
+        pw_map = artifacts['place_win_rate']
+        df['place_code_tmp'] = df['race_id'].astype(str).str[4:6]
+        def _get_place_win_rate(row):
+            hid = str(row['horse_id'])
+            pc = row.get('place_code_tmp', 'unknown')
+            if hid in pw_map and pc in pw_map[hid]:
+                return pw_map[hid][pc]
+            return 0.0
+        df['place_win_rate'] = df.apply(_get_place_win_rate, axis=1)
+        df = df.drop(columns=['place_code_tmp'], errors='ignore')
+    else:
+        df['place_win_rate'] = 0.0
+
 
     # Label Encoders — 共通関数を使用
     for col in settings.CATEGORY_COLS:

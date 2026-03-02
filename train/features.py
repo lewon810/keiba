@@ -21,7 +21,12 @@ FEATURES = [
     'sire_win_rate', 'damsire_win_rate',
     'course_type_win_rate', 'dist_cat_win_rate',
     'horse_age', 'num_runners',
-    'lag2_rank_norm', 'lag3_rank_norm', 'avg_last3_rank_norm'
+    'lag2_rank_norm', 'lag3_rank_norm', 'avg_last3_rank_norm',
+    # 新特徴量
+    'win_streak',           # 直近連勝数（勢い指標）
+    'days_since_last_win',  # 前回勝利からの日数（好調期の捕捉）
+    # normalized_odds_rank は除外: 逆学習の原因になっていた（不人気馬を勝利馬と誤認）
+    'place_win_rate',       # 競馬場別馬勝率（コース適性）
 ]
 # 除外した特徴量と理由:
 # - popularity_ratio / popularity: 市場人気のシグナル → オッズに既反映済み

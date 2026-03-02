@@ -24,9 +24,9 @@ on:
         required: true
         default: '2025'
       eval_month:
-        description: 'Evaluation Month (1-12)'
+        description: 'Evaluation Month (1-12, 0=all year)'
         required: false
-        default: '11'
+        default: '0'
 
       race_min:
         description: 'Min Race No (e.g. 9)'
@@ -80,11 +80,19 @@ jobs:
         # Ensure report dir exists
         mkdir -p train/report
         EVAL_YEAR=${{ inputs.eval_year || '2025' }}
-        EVAL_MONTH=${{ inputs.eval_month || '11' }}
+        EVAL_MONTH=${{ inputs.eval_month || '0' }}
         R_MIN=${{ inputs.race_min || '1' }}
         R_MAX=${{ inputs.race_max || '12' }}
-        echo "Evaluating on $EVAL_YEAR/$EVAL_MONTH | Race $R_MIN-$R_MAX"
-        python -m train.report.evaluate_html_generator --start $EVAL_YEAR --end $EVAL_YEAR --start_month $EVAL_MONTH --end_month $EVAL_MONTH --output evaluate.html --race_min $R_MIN --race_max $R_MAX
+        # eval_month=0 の場合は年間全体 (1〜12月) を対象とする
+        if [ "$EVAL_MONTH" = "0" ]; then
+          START_MONTH=1
+          END_MONTH=12
+        else
+          START_MONTH=$EVAL_MONTH
+          END_MONTH=$EVAL_MONTH
+        fi
+        echo "Evaluating on $EVAL_YEAR ($START_MONTH〜${END_MONTH}月) | Race $R_MIN-$R_MAX"
+        python -m train.report.evaluate_html_generator --start $EVAL_YEAR --end $EVAL_YEAR --start_month $START_MONTH --end_month $END_MONTH --output evaluate.html --race_min $R_MIN --race_max $R_MAX
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4

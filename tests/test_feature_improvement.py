@@ -55,7 +55,7 @@ class TestFeatureConsistency:
     def test_features_source_of_truth(self):
         """train.features.FEATURES が信頼できる唯一のソースであること"""
         from train.features import FEATURES
-        assert len(FEATURES) == 28, f"特徴量は28個であるべき (実際: {len(FEATURES)})"
+        assert len(FEATURES) == 31, f"特徴量は31個であるべき (実際: {len(FEATURES)})"
     
     def test_no_leakage_features(self):
         """リーケージ特徴量が含まれていないこと"""

@@ -65,15 +65,16 @@ def train_model(start_year, end_year, start_month=None, end_month=None):
         'metric': 'ndcg',
         'ndcg_eval_at': [1, 3, 5],
         'boosting_type': 'gbdt',
-        'learning_rate': 0.03,          # より安定した学習のため低め
-        'num_leaves': 63,               # より複雑なパターンを捉える
-        'min_child_samples': 50,        # 過学習防止
+        'learning_rate': 0.05,          # 0.03→0.05（収束速度向上）
+        'num_leaves': 127,              # 63→127（より複雑なパターンを学習）
+        'min_child_samples': 30,        # 50→30（小さなグループも考慮）
         'feature_fraction': 0.8,        # 特徴量サブサンプリング
         'bagging_fraction': 0.8,        # データサブサンプリング
         'bagging_freq': 5,
         'lambda_l1': 0.1,              # L1正則化
-        'lambda_l2': 1.0,              # L2正則化
-        'max_depth': 8,                # 木の深さ制限
+        'lambda_l2': 0.5,              # L2正則化（0.03→0.5，少し緩和）
+        'max_depth': 8,
+        'label_gain': [0, 1, 3, 7],    # rank_classの値(0-3)にGAINを割当て 1着陰を強調
         'verbose': -1,
         'seed': 42
     }
@@ -83,10 +84,10 @@ def train_model(start_year, end_year, start_month=None, end_month=None):
         params,
         lgb_train,
         valid_sets=[lgb_train, lgb_eval],
-        num_boost_round=2000,  # より多いラウンド（early stoppingで制御）
+        num_boost_round=5000,  # 2000→5000（データ70万件、early stoppingで制御）
         callbacks=[
-            lgb.early_stopping(stopping_rounds=20),
-            lgb.log_evaluation(50)
+            lgb.early_stopping(stopping_rounds=50),  # 20→50（最適解を広く探索）
+            lgb.log_evaluation(100)
         ]
     )
     
