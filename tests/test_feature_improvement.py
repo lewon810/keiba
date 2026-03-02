@@ -55,7 +55,7 @@ class TestFeatureConsistency:
     def test_features_source_of_truth(self):
         """train.features.FEATURES が信頼できる唯一のソースであること"""
         from train.features import FEATURES
-        assert len(FEATURES) == 31, f"特徴量は31個であるべき (実際: {len(FEATURES)})"
+        assert len(FEATURES) == 35, f"特徴量は35個であるべき (実際: {len(FEATURES)})"
     
     def test_no_leakage_features(self):
         """リーケージ特徴量が含まれていないこと"""
@@ -71,7 +71,9 @@ class TestFeatureConsistency:
         # lag*_rank_norm は絶対着順の 0〜1 正規化バージョン
         # popularity_ratio / popularity は除去済み（市場シグナルはオッズに反映済み）
         new_features = {'horse_age', 'num_runners',
-                        'lag1_rank_norm', 'lag2_rank_norm', 'lag3_rank_norm', 'avg_last3_rank_norm'}
+                        'lag1_rank_norm', 'lag2_rank_norm', 'lag3_rank_norm', 'avg_last3_rank_norm',
+                        'lag2_speed_index', 'avg_last3_speed_index', 'speed_trend',
+                        'jockey_trainer_combo_win_rate'}
         missing = new_features - set(FEATURES)
         assert not missing, \
             f"FEATURES に新特徴量が不足: {missing}"

@@ -84,9 +84,21 @@ def predict(race_data, return_df=False):
             df['interval'] = 365
             df['lag2_rank'] = 99
             df['lag3_rank'] = 99
+            df['lag2_speed_index'] = 0
+            df['avg_last3_speed_index'] = 0
+            df['speed_trend'] = 0
         
         # 直近3走の平均着順
         df['avg_last3_rank'] = df[['lag1_rank', 'lag2_rank', 'lag3_rank']].mean(axis=1)
+
+        # スピード指数トレンド — 履歴ロードが成功した場合は loader から取得した値を使用する
+        # 失敗した場合は上記の except 内で 0 を設定済み
+        if 'lag2_speed_index' not in df.columns:
+            df['lag2_speed_index'] = 0
+        if 'avg_last3_speed_index' not in df.columns:
+            df['avg_last3_speed_index'] = df['lag1_speed_index']
+        if 'speed_trend' not in df.columns:
+            df['speed_trend'] = 0
 
         # 2. Jockey Win Rate — 共通関数を使用
         jockey_map = artifacts.get('jockey_win_rate', {})
@@ -128,6 +140,12 @@ def predict(race_data, return_df=False):
             return 0.0
         df['dist_cat_win_rate'] = df.apply(_get_dist_aptitude, axis=1)
 
+        # 2e. 騎手×調教師 コンビ勝率
+        combo_map = artifacts.get('jockey_trainer_win_rate', {})
+        def _get_combo_win_rate(row):
+            key = str(row.get('jockey_id', 'unknown')) + '_' + str(row.get('trainer_id', 'unknown'))
+            return lookup_rate(key, combo_map)
+        df['jockey_trainer_combo_win_rate'] = df.apply(_get_combo_win_rate, axis=1)
 
         for col in cat_cols:
             # Handle Pedigree/Style missing in input

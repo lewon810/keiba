@@ -220,7 +220,14 @@ def preprocess(df):
     
     # Lag 1: Previous Speed Index
     df['lag1_speed_index'] = df.groupby('horse_id')['speed_index'].shift(1).fillna(0)
-    
+
+    # スピード指数トレンド特徴量（成績推移の捕捉）
+    df['lag2_speed_index'] = df.groupby('horse_id')['speed_index'].shift(2).fillna(0)
+    df['lag3_speed_index_tmp'] = df.groupby('horse_id')['speed_index'].shift(3).fillna(0)
+    df['avg_last3_speed_index'] = df[['lag1_speed_index', 'lag2_speed_index', 'lag3_speed_index_tmp']].mean(axis=1)
+    df['speed_trend'] = df['lag1_speed_index'] - df['avg_last3_speed_index']  # 正=上昇傾向
+    df = df.drop(columns=['lag3_speed_index_tmp'], errors='ignore')
+
     # Lag 1: Previous Last 3F Time (前走の上がり3F)
     df['lag1_last_3f'] = df.groupby('horse_id')['last_3f_time'].shift(1).fillna(0)
     
@@ -239,15 +246,12 @@ def preprocess(df):
     # 1. Calculate boolean 'is_win'
     df['is_win'] = (df['rank'] == 1).astype(int)
     
-    # 2. Group by Jockey and calc expanding mean, shifted by 1
-    # This ensures row N uses info from 0 to N-1
-    # fillna(0) for the first race of a jockey
+    # 2. 全期間 expanding mean (shift済み): 長期的な騎手実力
     df['jockey_win_rate'] = df.groupby('jockey_id')['is_win'].transform(
         lambda x: x.shift(1).expanding().mean()
     ).fillna(0)
     
-    # For Artifacts: We need to save the FINAL known stats for each jockey from the training set
-    # so we can use it for inference (future data).
+    # For Artifacts: 全期間マップを保存
     final_jockey_stats = df.groupby('jockey_id')['is_win'].agg(['count', 'sum'])
     final_jockey_stats['rate'] = final_jockey_stats['sum'] / final_jockey_stats['count']
     jockey_win_rate_map = final_jockey_stats['rate'].to_dict()
@@ -264,6 +268,19 @@ def preprocess(df):
     final_trainer_stats = df.groupby('trainer_id')['is_win'].agg(['count', 'sum'])
     final_trainer_stats['rate'] = final_trainer_stats['sum'] / final_trainer_stats['count']
     trainer_win_rate_map = final_trainer_stats['rate'].to_dict()
+
+    # Target Encoding (Jockey × Trainer Combo) - Expanding Window
+    # 騎手と調教師のコンビネーション勝率（相性を捉える）
+    print("Calculating expanding window stats for Jockey×Trainer Combo Win Rate...")
+    df['jockey_trainer_key'] = df['jockey_id'].astype(str) + '_' + df['trainer_id'].astype(str)
+    df['jockey_trainer_combo_win_rate'] = df.groupby('jockey_trainer_key')['is_win'].transform(
+        lambda x: x.shift(1).expanding().mean()
+    ).fillna(0)
+    # Artifacts: コンビ勝率マップ
+    final_combo_stats = df.groupby('jockey_trainer_key')['is_win'].agg(['count', 'sum'])
+    final_combo_stats['rate'] = final_combo_stats['sum'] / final_combo_stats['count']
+    jockey_trainer_win_rate_map = final_combo_stats['rate'].to_dict()
+    df = df.drop(columns=['jockey_trainer_key'], errors='ignore')
 
     # Target Encoding (Pedigree: Sire & DamSire)
     # Check if columns exist (merged from horse_profiles)
@@ -431,6 +448,7 @@ def preprocess(df):
     artifacts = {
         'jockey_win_rate': jockey_win_rate_map,
         'trainer_win_rate': trainer_win_rate_map,
+        'jockey_trainer_win_rate': jockey_trainer_win_rate_map,  # コンビ勝率マップ
         'sire_win_rate': sire_win_rate_map,
         'damsire_win_rate': damsire_win_rate_map,
         'aptitude_type': aptitude_type_map,
@@ -567,7 +585,14 @@ def transform(df, artifacts):
     df['avg_last3_rank_norm'] = (df['avg_last3_rank'].clip(1, 10) - 1) / 9.0
     
     df['lag1_speed_index'] = df.groupby('horse_id')['speed_index'].shift(1).fillna(0)
-    
+
+    # スピード指数トレンド特徴量
+    df['lag2_speed_index'] = df.groupby('horse_id')['speed_index'].shift(2).fillna(0)
+    df['lag3_speed_index_tmp'] = df.groupby('horse_id')['speed_index'].shift(3).fillna(0)
+    df['avg_last3_speed_index'] = df[['lag1_speed_index', 'lag2_speed_index', 'lag3_speed_index_tmp']].mean(axis=1)
+    df['speed_trend'] = df['lag1_speed_index'] - df['avg_last3_speed_index']
+    df = df.drop(columns=['lag3_speed_index_tmp'], errors='ignore')
+
     # Lag 1: Previous Last 3F Time (前走の上がり3F)
     df['lag1_last_3f'] = df.groupby('horse_id')['last_3f_time'].shift(1).fillna(0)
     
@@ -677,6 +702,16 @@ def transform(df, artifacts):
     else:
         df['place_win_rate'] = 0.0
 
+
+    # Feature: Jockey × Trainer コンビ勝率
+    if 'jockey_trainer_win_rate' in artifacts:
+        combo_map = artifacts['jockey_trainer_win_rate']
+        def _get_combo_win_rate(row):
+            key = str(row.get('jockey_id', 'unknown')) + '_' + str(row.get('trainer_id', 'unknown'))
+            return feat.lookup_rate(key, combo_map)
+        df['jockey_trainer_combo_win_rate'] = df.apply(_get_combo_win_rate, axis=1)
+    else:
+        df['jockey_trainer_combo_win_rate'] = 0.0
 
     # Label Encoders — 共通関数を使用
     for col in settings.CATEGORY_COLS:

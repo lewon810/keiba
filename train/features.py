@@ -22,11 +22,17 @@ FEATURES = [
     'course_type_win_rate', 'dist_cat_win_rate',
     'horse_age', 'num_runners',
     'lag2_rank_norm', 'lag3_rank_norm', 'avg_last3_rank_norm',
-    # 新特徴量
+    # 連勝・好調期
     'win_streak',           # 直近連勝数（勢い指標）
     'days_since_last_win',  # 前回勝利からの日数（好調期の捕捉）
     # normalized_odds_rank は除外: 逆学習の原因になっていた（不人気馬を勝利馬と誤認）
     'place_win_rate',       # 競馬場別馬勝率（コース適性）
+    # スピード指数トレンド（新特徴量）
+    'lag2_speed_index',          # 2走前スピード指数
+    'avg_last3_speed_index',     # 直近3走スピード指数平均
+    'speed_trend',               # スピード指数トレンド（lag1 - avg_last3）
+    # 騎手×調教師コンビ勝率（新特徴量）
+    'jockey_trainer_combo_win_rate',
 ]
 # 除外した特徴量と理由:
 # - popularity_ratio / popularity: 市場人気のシグナル → オッズに既反映済み
