@@ -577,12 +577,8 @@ def transform(df, artifacts):
     df['lag3_rank'] = df.groupby('horse_id')['rank'].shift(3).fillna(99).astype(int)
     df['avg_last3_rank'] = df[['lag1_rank', 'lag2_rank', 'lag3_rank']].mean(axis=1)
     
-    # 正規化: 絶対着順(1-99)を 0.0〜1.0 スケールへ変換
-    # 1着→0.0（最良）, 10着以上→1.0（最悪）
-    df['lag1_rank_norm'] = (df['lag1_rank'].clip(1, 10) - 1) / 9.0
-    df['lag2_rank_norm'] = (df['lag2_rank'].clip(1, 10) - 1) / 9.0
-    df['lag3_rank_norm'] = (df['lag3_rank'].clip(1, 10) - 1) / 9.0
-    df['avg_last3_rank_norm'] = (df['avg_last3_rank'].clip(1, 10) - 1) / 9.0
+    # 正規化: 絶対着順は共通関数 apply_artifacts_to_df で計算するためここではスキップ
+    # (lag1_rank等の計算はここで行う)
     
     df['lag1_speed_index'] = df.groupby('horse_id')['speed_index'].shift(1).fillna(0)
 
@@ -603,52 +599,7 @@ def transform(df, artifacts):
     df['running_style'] = df['lag1_first_position'].apply(feat.classify_running_style)
     df = df.drop(columns=['first_position', 'lag1_first_position'], errors='ignore')
 
-    # Encoding using Artifacts
-    # Added Pedigree Features
-    encoding_cols = [
-        ('jockey_win_rate', 'jockey_id'),
-        ('trainer_win_rate', 'trainer_id'),
-        ('sire_win_rate', 'sire_id'),
-        ('damsire_win_rate', 'damsire_id')
-    ]
-    
-    for col, enc_map in encoding_cols:
-        if col in artifacts:
-            map_dict = artifacts[col]
-            id_col = enc_map
-            if id_col in df.columns:
-                df[col] = df[id_col].astype(str).apply(lambda k: feat.lookup_rate(k, map_dict))
-            else:
-                df[col] = 0.0
-        else:
-            df[col] = 0.0
-            
-    # Aptitude Features Application (Inference)
-    # Apply using aptitude maps
-    if 'aptitude_type' in artifacts:
-        type_map = artifacts['aptitude_type']
-        def _get_type_aptitude(row):
-            hid = str(row['horse_id'])
-            ctype = row.get('course_type', 'unknown')
-            if hid in type_map and ctype in type_map[hid]:
-                return type_map[hid][ctype]
-            return 0.0
-        df['course_type_win_rate'] = df.apply(_get_type_aptitude, axis=1)
-    else:
-        df['course_type_win_rate'] = 0.0
-
-    if 'aptitude_dist' in artifacts:
-        dist_map = artifacts['aptitude_dist']
-        df['dist_cat'] = df['distance'].apply(feat.get_dist_cat)
-        def _get_dist_aptitude(row):
-            hid = str(row['horse_id'])
-            cat = row.get('dist_cat', 'unknown')
-            if hid in dist_map and cat in dist_map[hid]:
-                return dist_map[hid][cat]
-            return 0.0
-        df['dist_cat_win_rate'] = df.apply(_get_dist_aptitude, axis=1)
-    else:
-        df['dist_cat_win_rate'] = 0.0
+    # Win Rate Maps (Jockey, Trainer, Sire, DamSire, Aptitude) は共通関数で適用するため削除
             
     # Weight Diff
     if 'weight_diff' in df.columns:
@@ -687,37 +638,10 @@ def transform(df, artifacts):
     else:
         df['normalized_odds_rank'] = 0.5
 
-    # Feature: Place Win Rate (競馬場別馬勝率) — artifacts から取得
-    if 'place_win_rate' in artifacts:
-        pw_map = artifacts['place_win_rate']
-        df['place_code_tmp'] = df['race_id'].astype(str).str[4:6]
-        def _get_place_win_rate(row):
-            hid = str(row['horse_id'])
-            pc = row.get('place_code_tmp', 'unknown')
-            if hid in pw_map and pc in pw_map[hid]:
-                return pw_map[hid][pc]
-            return 0.0
-        df['place_win_rate'] = df.apply(_get_place_win_rate, axis=1)
-        df = df.drop(columns=['place_code_tmp'], errors='ignore')
-    else:
-        df['place_win_rate'] = 0.0
-
-
-    # Feature: Jockey × Trainer コンビ勝率
-    if 'jockey_trainer_win_rate' in artifacts:
-        combo_map = artifacts['jockey_trainer_win_rate']
-        def _get_combo_win_rate(row):
-            key = str(row.get('jockey_id', 'unknown')) + '_' + str(row.get('trainer_id', 'unknown'))
-            return feat.lookup_rate(key, combo_map)
-        df['jockey_trainer_combo_win_rate'] = df.apply(_get_combo_win_rate, axis=1)
-    else:
-        df['jockey_trainer_combo_win_rate'] = 0.0
-
-    # Label Encoders — 共通関数を使用
-    for col in settings.CATEGORY_COLS:
-        if col in df.columns:
-            if col in artifacts:
-                df = feat.apply_label_encoder(df, col, artifacts[col])
+    # Place Win Rate, Combo Win Rate, Label Encoders は削除
+    
+    # 共通関数で artifacts (LabelEncoder, 勝率マップ) 特徴量を一括適用
+    df = feat.apply_artifacts_to_df(df, artifacts)
 
     # Rank Class (for evaluation if rank exists)
     if 'rank' in df.columns:

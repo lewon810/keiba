@@ -183,3 +183,110 @@ def compute_last_3f_features(df):
         df['last_3f_deviation'] = 50
 
     return df
+
+
+def apply_artifacts_to_df(df, artifacts):
+    """
+    artifacts（学習済みマップ）を使ってDataFrameに特徴量を付与する共通関数。
+    predictor.py と preprocess.transform() の両方から呼び出す。
+    
+    前提: df に以下が計算済みであること
+      - lag1_rank, lag2_rank, lag3_rank, avg_last3_rank  (lag features)
+      - horse_id, jockey_id, trainer_id, course_type, distance 等の基本列
+    """
+    # 1. Rank Normalization (rank_norm系)
+    if 'lag1_rank' in df.columns:
+        df['lag1_rank_norm'] = (df['lag1_rank'].clip(1, 10) - 1) / 9.0
+        df['lag2_rank_norm'] = (df['lag2_rank'].clip(1, 10) - 1) / 9.0
+        df['lag3_rank_norm'] = (df['lag3_rank'].clip(1, 10) - 1) / 9.0
+        df['avg_last3_rank_norm'] = (df['avg_last3_rank'].clip(1, 10) - 1) / 9.0
+
+    # 2. Win Rate Maps (Jockey, Trainer, Sire, DamSire)
+    encoding_cols = [
+        ('jockey_win_rate', 'jockey_id'),
+        ('trainer_win_rate', 'trainer_id'),
+        ('sire_win_rate', 'sire_id'),
+        ('damsire_win_rate', 'damsire_id')
+    ]
+    for col, id_col in encoding_cols:
+        if col in artifacts:
+            map_dict = artifacts[col]
+            if id_col in df.columns:
+                df[col] = df[id_col].astype(str).apply(lambda k: lookup_rate(k, map_dict))
+            else:
+                df[col] = 0.0
+        else:
+            df[col] = 0.0
+
+    # 3. Aptitude Maps (Course Type, Distance)
+    if 'aptitude_type' in artifacts:
+        type_map = artifacts['aptitude_type']
+        def _get_type_aptitude(row):
+            hid = str(row.get('horse_id', ''))
+            ctype = row.get('course_type', 'unknown')
+            if hid in type_map and ctype in type_map[hid]:
+                return type_map[hid][ctype]
+            return 0.0
+        df['course_type_win_rate'] = df.apply(_get_type_aptitude, axis=1)
+    else:
+        df['course_type_win_rate'] = 0.0
+
+    if 'aptitude_dist' in artifacts:
+        dist_map = artifacts['aptitude_dist']
+        if 'distance' in df.columns and 'dist_cat' not in df.columns:
+            df['dist_cat'] = df['distance'].apply(get_dist_cat)
+        def _get_dist_aptitude(row):
+            hid = str(row.get('horse_id', ''))
+            cat = row.get('dist_cat', 'unknown')
+            if hid in dist_map and cat in dist_map[hid]:
+                return dist_map[hid][cat]
+            return 0.0
+        df['dist_cat_win_rate'] = df.apply(_get_dist_aptitude, axis=1)
+    else:
+        df['dist_cat_win_rate'] = 0.0
+
+    # 4. Place Win Rate
+    # scraperにはplace_code列はないためrace_idから推論するか引数で渡すか
+    if 'place_win_rate' in artifacts:
+        pw_map = artifacts['place_win_rate']
+        def _get_place_win_rate(row):
+            hid = str(row.get('horse_id', ''))
+            # 既にplace_code列がある場合はそれを使用、なければrace_idから推測
+            if 'place_code' in row and pd.notna(row['place_code']):
+                pc = str(row['place_code'])
+            elif 'race_id' in row and pd.notna(row['race_id']):
+                pc = str(row['race_id'])[4:6]
+            else:
+                pc = 'unknown'
+            if hid in pw_map and pc in pw_map[hid]:
+                return pw_map[hid][pc]
+            return 0.0
+        df['place_win_rate'] = df.apply(_get_place_win_rate, axis=1)
+    else:
+        df['place_win_rate'] = 0.0
+
+    # 5. Jockey × Trainer Combo Win Rate
+    if 'jockey_trainer_win_rate' in artifacts:
+        combo_map = artifacts['jockey_trainer_win_rate']
+        def _get_combo_win_rate(row):
+            key = str(row.get('jockey_id', 'unknown')) + '_' + str(row.get('trainer_id', 'unknown'))
+            return lookup_rate(key, combo_map)
+        df['jockey_trainer_combo_win_rate'] = df.apply(_get_combo_win_rate, axis=1)
+    else:
+        df['jockey_trainer_combo_win_rate'] = 0.0
+
+    # 6. Default Fallbacks (win_streak, days_since_last_win)
+    if 'win_streak' not in df.columns:
+        df['win_streak'] = 0
+    if 'days_since_last_win' not in df.columns:
+        df['days_since_last_win'] = 365
+        
+    # 7. Label Encoding
+    # artifacts内のLabelEncoderオブジェクトを判別して適用する
+    from sklearn.preprocessing import LabelEncoder
+    for col, obj in artifacts.items():
+        if isinstance(obj, LabelEncoder) and col in df.columns:
+            df = apply_label_encoder(df, col, obj)
+
+    return df
+

@@ -91,97 +91,26 @@ def predict(race_data, return_df=False):
         # 直近3走の平均着順
         df['avg_last3_rank'] = df[['lag1_rank', 'lag2_rank', 'lag3_rank']].mean(axis=1)
 
-        # ランク正規化 — preprocess.py と同じロジック (1-10 clip → 0-1)
-        # FEATURES に lag1_rank_norm 等が必要なため追加
-        df['lag1_rank_norm'] = (df['lag1_rank'].clip(1, 10) - 1) / 9.0
-        df['lag2_rank_norm'] = (df['lag2_rank'].clip(1, 10) - 1) / 9.0
-        df['lag3_rank_norm'] = (df['lag3_rank'].clip(1, 10) - 1) / 9.0
-        df['avg_last3_rank_norm'] = (df['avg_last3_rank'].clip(1, 10) - 1) / 9.0
+        # 特徴量生成前の事前処理 (欠損カテゴリの補完)
+        cat_cols = ['horse_id', 'jockey_id', 'trainer_id', 'course_type', 'weather', 'condition', 'sire_id', 'damsire_id', 'running_style']
+        for col in cat_cols:
+            if col not in df.columns:
+                 df[col] = "unknown"
 
-        # スピード指数トレンド — 履歴ロードが成功した場合は loader から取得した値を使用する
-        # 失敗した場合は上記の except 内で 0 を設定済み
+        # スピード指数トレンド特有のフォールバック (履歴がない場合)
         if 'lag2_speed_index' not in df.columns:
             df['lag2_speed_index'] = 0
         if 'avg_last3_speed_index' not in df.columns:
-            df['avg_last3_speed_index'] = df['lag1_speed_index']
+            if 'lag1_speed_index' in df.columns:
+                df['avg_last3_speed_index'] = df['lag1_speed_index']
+            else:
+                df['avg_last3_speed_index'] = 0
         if 'speed_trend' not in df.columns:
             df['speed_trend'] = 0
 
-        # win_streak / days_since_last_win — 推論時は履歴から計算困難なのでデフォルト値
-        if 'win_streak' not in df.columns:
-            df['win_streak'] = 0        # デフォルト: 連勝なし
-        if 'days_since_last_win' not in df.columns:
-            df['days_since_last_win'] = 365  # デフォルト: 1年前に最後の勝利
-
-        # 2. Jockey Win Rate — 共通関数を使用
-        jockey_map = artifacts.get('jockey_win_rate', {})
-        df['jockey_win_rate'] = df['jockey_id'].apply(lambda jid: lookup_rate(jid, jockey_map))
-
-        # 2b. Trainer Win Rate — 共通関数を使用
-        trainer_map = artifacts.get('trainer_win_rate', {})
-        df['trainer_win_rate'] = df['trainer_id'].apply(lambda tid: lookup_rate(tid, trainer_map))
-
-        # 3. Categorical Encoding (Label Encoder)
-        cat_cols = ['horse_id', 'jockey_id', 'trainer_id', 'course_type', 'weather', 'condition', 'sire_id', 'damsire_id', 'running_style']
-        
-        # 2c. Sire/DamSire Win Rate — 共通関数を使用
-        for col in ['sire_win_rate', 'damsire_win_rate']:
-            base_col = col.replace('_win_rate', '_id')  # sire_id
-            map_data = artifacts.get(col, {})
-            if base_col not in df.columns: df[base_col] = 'unknown'
-            df[col] = df[base_col].apply(lambda pid: lookup_rate(pid, map_data))
-
-        # 2d. Aptitude Features (Turf/Dirt, Distance) — 共通関数を使用
-        # Turf/Dirt
-        apt_type_map = artifacts.get('aptitude_type', {})
-        def _get_type_aptitude(row):
-            hid = str(row['horse_id'])
-            ctype = row.get('course_type', 'unknown')
-            if hid in apt_type_map and ctype in apt_type_map[hid]:
-                return apt_type_map[hid][ctype]
-            return 0.0
-        df['course_type_win_rate'] = df.apply(_get_type_aptitude, axis=1)
-
-        # Distance — 共通関数を使用
-        apt_dist_map = artifacts.get('aptitude_dist', {})
-        df['dist_cat_temp'] = df['distance'].apply(get_dist_cat)
-        def _get_dist_aptitude(row):
-            hid = str(row['horse_id'])
-            cat = row.get('dist_cat_temp', 'unknown')
-            if hid in apt_dist_map and cat in apt_dist_map[hid]:
-                return apt_dist_map[hid][cat]
-            return 0.0
-        df['dist_cat_win_rate'] = df.apply(_get_dist_aptitude, axis=1)
-
-        # 2e. 競馬場別馬勝率 (place_win_rate) — preprocess.py と同じマップ構造から取得
-        place_win_rate_map = artifacts.get('place_win_rate', {})
-        def _get_place_win_rate(row):
-            hid = str(row.get('horse_id', ''))
-            # place_codeはrace_idの[4:6]だが推論時はscraper側で設定済みの場合もある
-            # フォールバック: scraper からのrace_idをここで解析できないため0.0
-            return 0.0  # 推論時はrace_idがないためデフォルト値
-        if place_win_rate_map:
-            df['place_win_rate'] = df.apply(_get_place_win_rate, axis=1)
-        else:
-            df['place_win_rate'] = 0.0
-
-        # 2f. 騎手×調教師 コンビ勝率
-        combo_map = artifacts.get('jockey_trainer_win_rate', {})
-        def _get_combo_win_rate(row):
-            key = str(row.get('jockey_id', 'unknown')) + '_' + str(row.get('trainer_id', 'unknown'))
-            return lookup_rate(key, combo_map)
-        df['jockey_trainer_combo_win_rate'] = df.apply(_get_combo_win_rate, axis=1)
-
-        for col in cat_cols:
-            # Handle Pedigree/Style missing in input
-            if col not in df.columns:
-                 df[col] = "unknown"
-                 
-            # LabelEncoder 適用 — 共通関数を使用
-            if col in artifacts:
-                df = apply_label_encoder(df, col, artifacts[col])
-            else:
-                 df[col] = 0
+        # 共通関数で artifacts (勝率マップ, LabelEncoder) を使った特徴量を一括適用
+        from train.features import apply_artifacts_to_df
+        df = apply_artifacts_to_df(df, artifacts)
 
         # ... (Numeric cleanup skipped in this diff, assuming follow-up or inclusion)
         # 4. Numeric cleanup
@@ -221,6 +150,10 @@ def predict(race_data, return_df=False):
 
         # 5. Predict — 共通定数を使用
         features = FEATURES
+
+        missing_cols = set(features) - set(df.columns)
+        if missing_cols:
+            print(f"DEBUG Missing columns: {missing_cols}")
 
         # LambdaRank returns 1D score array (N,) - higher is better
         pred_scores = model.predict(df[features])
