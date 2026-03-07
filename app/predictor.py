@@ -91,6 +91,13 @@ def predict(race_data, return_df=False):
         # 直近3走の平均着順
         df['avg_last3_rank'] = df[['lag1_rank', 'lag2_rank', 'lag3_rank']].mean(axis=1)
 
+        # ランク正規化 — preprocess.py と同じロジック (1-10 clip → 0-1)
+        # FEATURES に lag1_rank_norm 等が必要なため追加
+        df['lag1_rank_norm'] = (df['lag1_rank'].clip(1, 10) - 1) / 9.0
+        df['lag2_rank_norm'] = (df['lag2_rank'].clip(1, 10) - 1) / 9.0
+        df['lag3_rank_norm'] = (df['lag3_rank'].clip(1, 10) - 1) / 9.0
+        df['avg_last3_rank_norm'] = (df['avg_last3_rank'].clip(1, 10) - 1) / 9.0
+
         # スピード指数トレンド — 履歴ロードが成功した場合は loader から取得した値を使用する
         # 失敗した場合は上記の except 内で 0 を設定済み
         if 'lag2_speed_index' not in df.columns:
@@ -99,6 +106,12 @@ def predict(race_data, return_df=False):
             df['avg_last3_speed_index'] = df['lag1_speed_index']
         if 'speed_trend' not in df.columns:
             df['speed_trend'] = 0
+
+        # win_streak / days_since_last_win — 推論時は履歴から計算困難なのでデフォルト値
+        if 'win_streak' not in df.columns:
+            df['win_streak'] = 0        # デフォルト: 連勝なし
+        if 'days_since_last_win' not in df.columns:
+            df['days_since_last_win'] = 365  # デフォルト: 1年前に最後の勝利
 
         # 2. Jockey Win Rate — 共通関数を使用
         jockey_map = artifacts.get('jockey_win_rate', {})
@@ -140,7 +153,19 @@ def predict(race_data, return_df=False):
             return 0.0
         df['dist_cat_win_rate'] = df.apply(_get_dist_aptitude, axis=1)
 
-        # 2e. 騎手×調教師 コンビ勝率
+        # 2e. 競馬場別馬勝率 (place_win_rate) — preprocess.py と同じマップ構造から取得
+        place_win_rate_map = artifacts.get('place_win_rate', {})
+        def _get_place_win_rate(row):
+            hid = str(row.get('horse_id', ''))
+            # place_codeはrace_idの[4:6]だが推論時はscraper側で設定済みの場合もある
+            # フォールバック: scraper からのrace_idをここで解析できないため0.0
+            return 0.0  # 推論時はrace_idがないためデフォルト値
+        if place_win_rate_map:
+            df['place_win_rate'] = df.apply(_get_place_win_rate, axis=1)
+        else:
+            df['place_win_rate'] = 0.0
+
+        # 2f. 騎手×調教師 コンビ勝率
         combo_map = artifacts.get('jockey_trainer_win_rate', {})
         def _get_combo_win_rate(row):
             key = str(row.get('jockey_id', 'unknown')) + '_' + str(row.get('trainer_id', 'unknown'))
