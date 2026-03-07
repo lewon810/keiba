@@ -157,18 +157,12 @@ def predict(race_data, return_df=False):
 
         # LambdaRank returns 1D score array (N,) - higher is better
         pred_scores = model.predict(df[features])
+        df['pred_scores'] = pred_scores
         
         # Convert LambdaRank scores to probabilities using softmax
         # This prevents the top horse from always being 100% and creates a realistic probability distribution
         import numpy as np
         
-        if len(pred_scores) > 0:
-            # Softmax transformation for numerical stability
-            exp_scores = np.exp(pred_scores - pred_scores.max())
-            df['win_prob'] = exp_scores / exp_scores.sum()
-        else:
-            df['win_prob'] = 0.0
-
         # Clean Odds for calculation
         def parse_odds(o):
             try:
@@ -177,8 +171,32 @@ def predict(race_data, return_df=False):
                 return 0.0
         df['odds_val'] = df['odds'].apply(parse_odds)
 
-        # スコア計算: LambdaRankスコア × オッズ
-        # オッズがない場合はwin_probをフォールバック
+        if len(pred_scores) > 0:
+            # 1. Softmax transformation for numerical stability (Base Probability)
+            exp_scores = np.exp(pred_scores - pred_scores.max())
+            base_prob = exp_scores / exp_scores.sum()
+            
+            # 2. Implied Probability from Market Odds (assuming 80% payout rate)
+            # odds_val が 0 の場合は 0.0 とする
+            implied_prob = 0.80 / df['odds_val'].replace(0.0, np.nan)
+            implied_prob = implied_prob.fillna(0.0)
+            
+            # 3. Hybrid Blend (Geometric Mean)
+            # 市場が全く評価していない（オッズが高い）馬でもベース能力が高ければある程度の確率が残るが、
+            # ベース単体よりは現実的な水準（一桁台前半）に抑えられる。
+            # ※ odds_val==0 (オッズ取得失敗) の場合は base_prob をそのまま使う
+            df['win_prob'] = np.where(
+                df['odds_val'] > 0,
+                np.sqrt(base_prob * implied_prob),
+                base_prob
+            )
+            # 正規化して合計を1.0にする
+            df['win_prob'] = df['win_prob'] / df['win_prob'].sum()
+        else:
+            df['win_prob'] = 0.0
+
+        # スコア計算: ハイブリッド勝率 × オッズ (期待値)
+        # オッズがない場合はそのままwin_probをフォールバック
         df['score'] = df.apply(
             lambda x: x['win_prob'] * x['odds_val'] if x['odds_val'] > 0 else x['win_prob'], 
             axis=1
