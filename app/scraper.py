@@ -12,8 +12,9 @@ def fetch_race_data(url):
     }
     
     try:
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, headers=headers, timeout=30)
         response.encoding = response.apparent_encoding  # Handle Japanese encoding
+        print(f"[fetch_race_data] HTTP Status: {response.status_code} for {url}")
         
         soup = BeautifulSoup(response.text, "lxml")
         
@@ -189,9 +190,16 @@ def search_races(date_str, place_code=None, race_no=None):
     }
     
     try:
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, headers=headers, timeout=30)
         # race_list_sub is UTF-8, unlike main race pages
-        response.encoding = 'utf-8' 
+        response.encoding = 'utf-8'
+        
+        # デバッグ: HTTPステータスとHTML先頭部を出力してアクセスブロックを検出
+        print(f"[search_races] HTTP Status: {response.status_code} for {url}")
+        if response.status_code != 200:
+            print(f"[search_races] Non-200 response body (first 300 chars): {response.text[:300]}")
+        elif 'race_id' not in response.text and 'shutuba' not in response.text:
+            print(f"[search_races] No race links found in HTML. First 500 chars: {response.text[:500]}")
              
         soup = BeautifulSoup(response.text, "lxml")
         
