@@ -125,14 +125,14 @@ def preprocess(df):
     df = df.dropna(subset=['rank']) # Drop non-numeric ranks (e.g., "DNS", "DQ")
     
     # Create Target: rank_class
-    # 0: 1st, 1: 2-3, 2: 4-5, 3: 6+
+    # 3: 1st, 2: 2-3, 1: 4-5, 0: 6+ (LambdaRank requires higher label = higher relevance)
     conditions = [
         (df['rank'] == 1),
         (df['rank'] <= 3),
         (df['rank'] <= 5)
     ]
-    choices = [0, 1, 2]
-    df['rank_class'] = np.select(conditions, choices, default=3)
+    choices = [3, 2, 1]
+    df['rank_class'] = np.select(conditions, choices, default=0)
     
     # 日付のパース
     # year, month, day カラムから datetime を構築
@@ -647,8 +647,8 @@ def transform(df, artifacts):
     if 'rank' in df.columns:
         df['rank'] = pd.to_numeric(df['rank'], errors='coerce')
         conditions = [(df['rank'] == 1), (df['rank'] <= 3), (df['rank'] <= 5)]
-        choices = [0, 1, 2]
-        df['rank_class'] = np.select(conditions, choices, default=3)
+        choices = [3, 2, 1]
+        df['rank_class'] = np.select(conditions, choices, default=0)
     
     df = df.fillna(0)
     return df
