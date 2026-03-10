@@ -14,11 +14,11 @@ on:
       train_end:
         description: 'Training End Year'
         required: true
-        default: '2025'
+        default: '2024'
       train_end_month:
         description: 'Training End Month (1-12)'
         required: false
-        default: '10'
+        default: '12'
       eval_year:
         description: 'Evaluation Year'
         required: true
