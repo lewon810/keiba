@@ -74,7 +74,7 @@ def train_model(start_year, end_year, start_month=None, end_month=None):
         'lambda_l1': 0.1,              # L1正則化
         'lambda_l2': 0.5,              # L2正則化（0.03→0.5，少し緩和）
         'max_depth': 8,
-        'label_gain': [0, 1, 2, 15],   # rank_classの値(0-3)にGAINを割当て、1着(=0)の報酬を強調
+        'label_gain': [15, 2, 1, 0],   # rank_class=0(1着)にGAIN=15, =1(2-3着)=2, =2(4-5着)=1, =3(6着+)=0
         'verbose': -1,
         'seed': 42
     }

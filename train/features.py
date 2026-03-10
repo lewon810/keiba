@@ -14,10 +14,10 @@ import pandas as pd
 
 # モデルが使用する特徴量リスト（学習・推論・評価で共通）
 FEATURES = [
-    'jockey_win_rate', 'trainer_win_rate', 'horse_id', 'jockey_id', 'trainer_id',
+    'jockey_win_rate', 'trainer_win_rate',
     'waku', 'umaban', 'course_type', 'distance', 'weather', 'condition',
     'lag1_rank_norm', 'lag1_speed_index', 'lag1_last_3f', 'interval', 'weight_diff',
-    'sire_id', 'damsire_id', 'running_style',
+    'running_style',
     'sire_win_rate', 'damsire_win_rate',
     'course_type_win_rate', 'dist_cat_win_rate',
     'horse_age', 'num_runners',
@@ -35,8 +35,10 @@ FEATURES = [
     'jockey_trainer_combo_win_rate',
 ]
 # 除外した特徴量と理由:
+# - horse_id / jockey_id / trainer_id / sire_id / damsire_id:
+#   高カーディナリティIDはLabelEncoderで連番化しても意味がない。
+#   各IDの予測シグナルは勝率マップ（win_rate系特徴量）で十分に捉えている。
 # - popularity_ratio / popularity: 市場人気のシグナル → オッズに既反映済み
-# jockey_win_rate / trainer_win_rate は過去実績ベースの固定値なので残す
 
 # 競馬場コード → 名称マッピング
 PLACE_MAP = {
@@ -289,4 +291,17 @@ def apply_artifacts_to_df(df, artifacts):
             df = apply_label_encoder(df, col, obj)
 
     return df
+
+
+def compute_score(df, win_prob_col='win_prob', odds_col='odds'):
+    """
+    スコア計算の共通関数（evaluate / predict 共通）。
+    score = win_prob × odds（期待値ベース）。
+    オッズが 0 の場合は win_prob をそのまま使用する。
+    """
+    odds = pd.to_numeric(df[odds_col], errors='coerce').fillna(0)
+    prob = df[win_prob_col]
+    score = np.where(odds > 0, prob * odds, prob)
+    return score
+
 

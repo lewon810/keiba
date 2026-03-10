@@ -12,7 +12,7 @@ from io import BytesIO
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from train import settings
-from train.features import FEATURES, PLACE_MAP_SHORT
+from train.features import FEATURES, PLACE_MAP_SHORT, compute_score
 
 def generate_report(start_year, end_year, output_file="evaluate.html", race_min=None, race_max=None, start_month=None, end_month=None):
     if start_month and end_month:
@@ -111,21 +111,23 @@ def generate_report(start_year, end_year, output_file="evaluate.html", race_min=
     df_base = df_base[df_base['place_code'].notna()]
     unique_places = sorted(df_base['place_code'].unique().astype(str))
 
-    # スコア計算: LambdaRankスコア × オッズ
-    # スコア = softmax確率（win_prob）のみ使用
-    # 診断結果: win_prob のみで hit_rate 2.25%, win_prob×log(odds)では 0.96%
-    df_base['score'] = df_base['win_prob']
+    # スコア計算: 共通関数 compute_score を使用（win_prob × odds = 期待値）
+    df_base['score'] = compute_score(df_base, win_prob_col='win_prob', odds_col='odds')
+    
+    # マージン計算: レース内1位と2位のスコア差（モデル確信度の指標）
+    df_base_sorted = df_base.sort_values(['race_id', 'score'], ascending=[True, False])
+    top2 = df_base_sorted.groupby('race_id')['score'].apply(lambda x: x.values[:2] if len(x) >= 2 else [x.values[0], 0])
+    margin_map = {rid: vals[0] - vals[1] for rid, vals in top2.items()}
+    df_base['margin'] = df_base['race_id'].map(margin_map).fillna(0)
     
     # min_scores をデータ実分布から動的生成
-    # レース毎のtop1スコアの分布に基づいて 11段階の閾値を生成
     place_df_sorted_tmp = df_base.sort_values(['race_id', 'score'], ascending=[True, False])
     top1_scores = place_df_sorted_tmp.groupby('race_id')['score'].first()
     score_min = float(top1_scores.min())
     score_max = float(top1_scores.max())
-    # 0〜max の範囲を10分割（0 は「フィルタなし」として常に含める）
-    step = score_max / 10
+    step = score_max / 10 if score_max > 0 else 0.1
     min_scores = [round(step * i, 1) for i in range(11)]
-    print(f"スコアレンジ: {score_min:.1f} 〜 {score_max:.1f}、閾値: {min_scores}")
+    print(f"スコアレンジ: {score_min:.2f} 〜 {score_max:.2f}、閾値: {min_scores}")
     
     summary_data = []
     
