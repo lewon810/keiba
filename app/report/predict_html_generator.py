@@ -72,8 +72,8 @@ def generate_prediction_report(output_file="predict.html"):
                 if 'odds_val' not in df_pred.columns:
                      df_pred['odds_val'] = df_pred['odds'].apply(parse_odds)
                      
-                # Sort by score
-                df_pred = df_pred.sort_values('score', ascending=False)
+                # Sort by win probability
+                df_pred = df_pred.sort_values('win_prob', ascending=False)
                 
                 # Meta
                 weather = "?"
@@ -280,7 +280,7 @@ def generate_prediction_report(output_file="predict.html"):
                                             <th>Jockey</th>
                                             <th>Odds</th>
                                             <th>Win%</th>
-                                            <th>Score</th>
+
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -299,7 +299,7 @@ def generate_prediction_report(output_file="predict.html"):
                         
                         odds = row.get('odds', '---')
                         win_prob = row.get('win_prob', 0) * 100
-                        score = row.get('score', 0)
+                        prob_pct = row.get('win_prob', 0) * 100
                         
                         html_content += f"""
                                         <tr class="{row_class}">
@@ -309,7 +309,7 @@ def generate_prediction_report(output_file="predict.html"):
                                             <td>{row.get('jockey', '')}</td>
                                             <td>{odds}</td>
                                             <td>{win_prob:.1f}%</td>
-                                            <td><strong>{score:.4f}</strong></td>
+
                                         </tr>
                         """
                         

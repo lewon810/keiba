@@ -54,10 +54,10 @@ def verify_html_generation():
         else:
             print("FAIL: Tab structure missing.")
             
-        if "Score" in content:
-             print("PASS: Score column displayed.")
+        if "Win%" in content:
+             print("PASS: Win% column displayed.")
         else:
-             print("FAIL: Score column missing.")
+             print("FAIL: Win% column missing.")
              
         if "🥇" in content and "🥈" in content:
             print("PASS: Medal emojis found.")

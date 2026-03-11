@@ -33,7 +33,7 @@ def generate_html_report(predictions_list, output_path="index.html"):
     <style>
         body { background-color: #f8f9fa; }
         .race-card { margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .score-high { color: #dc3545; font-weight: bold; }
+
         .header-section { margin-bottom: 20px; padding: 20px; background: white; border-radius: 8px; }
         .nav-pills .nav-link.active { background-color: #0d6efd; }
         .race-btn-group { margin-bottom: 15px; flex-wrap: wrap; }
@@ -138,7 +138,7 @@ def generate_html_report(predictions_list, output_path="index.html"):
                                                 <th>Jockey</th>
                                                 <th>Odds</th>
                                                 <th>Win%</th>
-                                                <th>Score</th>
+
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -155,7 +155,7 @@ def generate_html_report(predictions_list, output_path="index.html"):
                         
                         odds = row.get('odds', '---.-')
                         win_prob = row.get('win_prob', 0) * 100
-                        score = row.get('score', 0)
+                        prob_pct = row.get('win_prob', 0) * 100
                         
                         html_content.append(f"""
                                         <tr class="{row_class}">
@@ -164,7 +164,7 @@ def generate_html_report(predictions_list, output_path="index.html"):
                                             <td>{row['jockey']}</td>
                                             <td>{odds}</td>
                                             <td>{win_prob:.1f}%</td>
-                                            <td class="score-high">{score:.4f}</td>
+
                                         </tr>
                         """)
                     html_content.append("</tbody></table></div></div></div>")
