@@ -12,7 +12,7 @@ from io import BytesIO
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from train import settings
-from train.features import FEATURES, PLACE_MAP_SHORT, compute_score
+from train.features import FEATURES, PLACE_MAP_SHORT
 
 def generate_report(start_year, end_year, output_file="evaluate.html", race_min=None, race_max=None, start_month=None, end_month=None):
     if start_month and end_month:
@@ -125,8 +125,7 @@ def generate_report(start_year, end_year, output_file="evaluate.html", race_min=
     df_base = df_base[df_base['place_code'].notna()]
     unique_places = sorted(df_base['place_code'].unique().astype(str))
 
-    # score（期待値）も計算（参考用）
-    df_base['score'] = compute_score(df_base, win_prob_col='win_prob', odds_col='odds')
+    # 期待値(score)ベースの評価は廃止されました
     
     # --- P1: win_prob ベースの閾値を動的生成 ---
     # Top-1をwin_probで選択し、閾値をwin_probの分布から決定
@@ -188,51 +187,7 @@ def generate_report(start_year, end_year, output_file="evaluate.html", race_min=
     
     result_summary = pd.DataFrame(summary_data)
 
-    # =============================================================
-    # B. Score (win_prob×odds) ベースの評価（参考: ROI最適化）
-    # =============================================================
-    score_sorted_tmp = df_base.sort_values(['race_id', 'score'], ascending=[True, False])
-    top1_scores = score_sorted_tmp.groupby('race_id')['score'].first()
-    score_min = float(top1_scores.min())
-    score_max = float(top1_scores.max())
-    score_step = score_max / 10 if score_max > 0 else 0.1
-    min_scores = [round(score_step * i, 1) for i in range(11)]
-    
-    score_summary_data = []
-    for score_thresh in min_scores:
-        for p_code in unique_places:
-            place_name = place_map.get(p_code, f"Place {p_code}")
-            place_df = df_base[df_base['place_code'] == p_code]
-            
-            place_df_sorted = place_df.sort_values(['race_id', 'score'], ascending=[True, False])
-            top1_df = place_df_sorted.groupby('race_id').head(1)
-            bet_df = top1_df[top1_df['score'] >= score_thresh]
-            
-            bets = len(bet_df)
-            if bets > 0:
-                cost = bets * 100
-                hits_df = bet_df[bet_df['rank'] == 1]
-                hits = len(hits_df)
-                place_df_hits = bet_df[bet_df['rank'] <= 3]
-                hits_top3 = len(place_df_hits)
-                return_amt = (hits_df['odds'] * 100).sum()
-                roi = return_amt / cost * 100
-                hit_rate = hits / bets * 100
-                place_rate = hits_top3 / bets * 100
-            else:
-                bets, hits, hits_top3, return_amt, cost = 0, 0, 0, 0, 0
-                roi, hit_rate, place_rate = 0, 0, 0
-            
-            score_summary_data.append({
-                'min_score': score_thresh,
-                'place_code': p_code,
-                'place_name': place_name,
-                'bets': bets, 'hits': hits, 'hits_top3': hits_top3,
-                'hit_rate': hit_rate, 'place_rate': place_rate,
-                'roi': roi, 'return': return_amt, 'cost': cost
-            })
-    
-    score_result_summary = pd.DataFrame(score_summary_data)
+
 
     # =============================================================
     # C. Generate HTML Report
@@ -326,38 +281,7 @@ def generate_report(start_year, end_year, output_file="evaluate.html", race_min=
     
     html_content += '</div>'  # end section-prob
     
-    # --- Chart 2: Score (Expected Value) ベース（参考） ---
-    html_content += '<div class="section-score">'
-    html_content += "<h2>📈 Expected Value Based (ROI Optimized, Reference)</h2>"
-    
-    plt.figure(figsize=(10, 6))
-    
-    score_agg = score_result_summary.groupby('min_score').agg({'bets': 'sum', 'cost': 'sum', 'return': 'sum', 'hits': 'sum', 'hits_top3': 'sum'}).reset_index()
-    score_agg['roi'] = (score_agg['return'] / score_agg['cost'] * 100).fillna(0)
-    score_agg['hit_rate'] = (score_agg['hits'] / score_agg['bets'] * 100).fillna(0)
-    score_agg['place_rate'] = (score_agg['hits_top3'] / score_agg['bets'] * 100).fillna(0)
-    
-    plt.plot(score_agg['min_score'], score_agg['roi'], marker='o', label='ROI (%)', color='#FF9800')
-    plt.plot(score_agg['min_score'], score_agg['hit_rate'], marker='x', label='Hit Rate (%)', color='#4CAF50')
-    
-    plt.axhline(100, color='red', linestyle='--', label='Break Even (ROI)')
-    plt.title("Performance vs Min Score Threshold (Expected Value)")
-    plt.xlabel("Min Score (win_prob × odds)")
-    plt.ylabel("Value (%)")
-    plt.grid(True)
-    plt.legend()
-    
-    buf2 = BytesIO()
-    plt.savefig(buf2, format='png')
-    plt.close()
-    score_uri = base64.b64encode(buf2.getvalue()).decode('utf-8')
-    html_content += f'<div class="chart"><img src="data:image/png;base64,{score_uri}" style="max-width:100%"></div>'
 
-    score_cols = ['min_score', 'bets', 'hit_rate', 'place_rate', 'roi', 'return']
-    html_content += "<h3>Overall by Score Threshold</h3>"
-    html_content += score_agg[score_cols].to_html(classes='table', float_format="%.2f", index=False)
-    
-    html_content += '</div>'  # end section-score
     
     # --- Feature Importance Chart ---
     if 'feature_importance' in artifacts:
@@ -379,11 +303,7 @@ def generate_report(start_year, end_year, output_file="evaluate.html", race_min=
     else:
         html_content += "<h2>Feature Importance</h2><p>Feature importance data not found in artifacts. Re-train the model to generate this data.</p>"
     
-    # --- ROI by Racecourse (Score-based, reference) ---
-    html_content += "<h2>Detailed Metrics</h2>"
-    html_content += "<h3>ROI by Racecourse (Score-based)</h3>"
-    pivot_roi = score_result_summary.pivot_table(index='min_score', columns='place_name', values='roi', aggfunc='first')
-    html_content += pivot_roi.to_html(classes='table', float_format="%.1f%%", na_rep="-")
+
 
     html_content += "</body></html>"
     

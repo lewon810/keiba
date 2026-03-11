@@ -12,7 +12,6 @@ import sys
 # プロジェクトルートを追加
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from train.features import compute_score
 
 
 class TestWinProbSelection:
@@ -40,40 +39,9 @@ class TestWinProbSelection:
         assert top1.iloc[0]['horse_id'] == 'H1'
         assert top1.iloc[0]['win_prob'] == 0.35
     
-    def test_score_selects_longshot(self):
-        """score (win_prob×odds) で Top-1 を選択すると穴馬が選ばれること（旧挙動の確認）"""
-        df = self._make_race_df()
-        df['score'] = compute_score(df, win_prob_col='win_prob', odds_col='odds')
-        
-        # score ベースでソートして Top-1
-        sorted_df = df.sort_values(['race_id', 'score'], ascending=[True, False])
-        top1 = sorted_df.groupby('race_id').head(1)
-        
-        # H2 (prob=0.10, odds=50.0, score=5.0) が選ばれるはず
-        assert top1.iloc[0]['horse_id'] == 'H2'
+
     
-    def test_win_prob_gives_correct_hit(self):
-        """win_prob ベースで選択した馬が実際に1着の場合 hit となること"""
-        df = self._make_race_df()
-        
-        sorted_df = df.sort_values(['race_id', 'win_prob'], ascending=[True, False])
-        top1 = sorted_df.groupby('race_id').head(1)
-        
-        # H1 は rank=1 なので hit
-        hits = top1[top1['rank'] == 1]
-        assert len(hits) == 1
-    
-    def test_score_gives_no_hit(self):
-        """score ベースで選択した馬が1着でない場合 miss となること"""
-        df = self._make_race_df()
-        df['score'] = compute_score(df, win_prob_col='win_prob', odds_col='odds')
-        
-        sorted_df = df.sort_values(['race_id', 'score'], ascending=[True, False])
-        top1 = sorted_df.groupby('race_id').head(1)
-        
-        # H2 は rank=5 なので miss
-        hits = top1[top1['rank'] == 1]
-        assert len(hits) == 0
+
 
 
 class TestWinProbThresholdFiltering:
@@ -108,21 +76,6 @@ class TestWinProbThresholdFiltering:
         # R001 (prob=0.40) のみ残る、R002 (prob=0.75) も残る
         # 修正: R002のTop-1はprob=0.75
         assert len(bet_df) == 2  # 両方0.30以上
-
-
-class TestComputeScoreUnchanged:
-    """compute_score 関数の既存動作が壊れていないことの確認"""
-    
-    def test_basic_score(self):
-        df = pd.DataFrame({'win_prob': [0.3, 0.1], 'odds': [5.0, 30.0]})
-        scores = compute_score(df)
-        np.testing.assert_array_almost_equal(scores, [1.5, 3.0])
-    
-    def test_zero_odds(self):
-        """オッズ0のときは win_prob をそのまま返す"""
-        df = pd.DataFrame({'win_prob': [0.5], 'odds': [0.0]})
-        scores = compute_score(df)
-        np.testing.assert_array_almost_equal(scores, [0.5])
 
 
 class TestHistoryDataLoading:

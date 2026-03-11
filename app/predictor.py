@@ -7,7 +7,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 try:
     from train import settings
-    from train.features import FEATURES, lookup_rate, get_dist_cat, apply_label_encoder, compute_score
+    from train.features import FEATURES, lookup_rate, get_dist_cat, apply_label_encoder
 except ImportError:
     class settings:
         MODEL_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'train', 'data', 'model')
@@ -196,7 +196,7 @@ def predict(race_data, return_df=False):
             df['win_prob'] = 0.0
 
         # スコア計算: 共通関数を使用（ハイブリッド勝率 × オッズ = 期待値）
-        df['score'] = compute_score(df, win_prob_col='win_prob', odds_col='odds_val')
+        # scoreロジック（黒歴史）は削除されました
 
         # Rank by Score (Descending)
         df = df.sort_values('score', ascending=False)
