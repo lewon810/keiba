@@ -20,8 +20,8 @@ except ImportError:
 def predict(race_data, return_df=False):
     """
     Takes race data (list of dicts) and returns predictions using the trained model.
-    If return_df is True, returns the pandas DataFrame with scores.
-    Score = win_prob * odds (LambdaRankスコアベース)
+    If return_df is True, returns the pandas DataFrame with win probability.
+    Predictions are ranked by win_prob.
     """
     if not race_data:
         return "No data to predict."
@@ -198,8 +198,8 @@ def predict(race_data, return_df=False):
         # スコア計算: 共通関数を使用（ハイブリッド勝率 × オッズ = 期待値）
         # scoreロジック（黒歴史）は削除されました
 
-        # Rank by Score (Descending)
-        df = df.sort_values('score', ascending=False)
+        # Rank by Win Probability (Descending)
+        df = df.sort_values('win_prob', ascending=False)
         
         if return_df:
             return df
@@ -209,7 +209,7 @@ def predict(race_data, return_df=False):
         context_weather = race_data[0].get('weather', 'Unknown')
         context_distance = race_data[0].get('distance', 'Unknown')
 
-        result_lines = ["Prediction Ranking (Score = Prob * Odds):"]
+        result_lines = ["Prediction Ranking (Ranked by Win Probability):"]
         result_lines.append(f"Context: {context_weather} / {context_distance}m")
         result_lines.append("-" * 40)
 
@@ -226,7 +226,7 @@ def predict(race_data, return_df=False):
             # Show Probability as well for transparency
             prob_pct = row['win_prob'] * 100
             
-            line = f"{symbol} {i+1}. {row['name']} (Odds: {odds_str}, Win%: {prob_pct:.1f}%, Score: {row['score']:.4f})"
+            line = f"{symbol} {i+1}. {row['name']} (Odds: {odds_str}, Win%: {prob_pct:.1f}%)"
             result_lines.append(line)
 
         return "\n".join(result_lines)
