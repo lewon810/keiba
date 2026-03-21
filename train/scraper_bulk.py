@@ -16,7 +16,7 @@ def fetch_html(url):
     try:
         time.sleep(1 + random.random()) # Be polite
         response = requests.get(url, headers=headers, timeout=10)
-        response.encoding = response.apparent_encoding
+        response.encoding = 'euc-jp'
         return response.text
     except Exception as e:
         print(f"Error fetching {url}: {e}")

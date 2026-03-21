@@ -13,7 +13,7 @@ def fetch_race_data(url):
     
     try:
         response = requests.get(url, headers=headers, timeout=30)
-        response.encoding = response.apparent_encoding  # Handle Japanese encoding
+        response.encoding = 'euc-jp'  # Handle Japanese encoding
         print(f"[fetch_race_data] HTTP Status: {response.status_code} for {url}")
         
         soup = BeautifulSoup(response.text, "lxml")

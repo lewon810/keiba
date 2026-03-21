@@ -17,7 +17,7 @@ def fetch_html(url):
         try:
             time.sleep(1 + attempt * 2)  # Exponential backoff: 1s, 3s, 5s
             response = requests.get(url, headers=headers, timeout=10)
-            response.encoding = response.apparent_encoding
+            response.encoding = 'euc-jp'
             if response.status_code == 200:
                 return response.text
             else:
