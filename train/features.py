@@ -33,6 +33,10 @@ FEATURES = [
     'speed_trend',               # スピード指数トレンド（lag1 - avg_last3）
     # 騎手×調教師コンビ勝率（新特徴量）
     'jockey_trainer_combo_win_rate',
+    # 新規追加特徴量
+    'is_long_rest',
+    'is_first_course_type',
+    'is_first_dist_cat',
 ]
 # 除外した特徴量と理由:
 # - horse_id / jockey_id / trainer_id / sire_id / damsire_id:
@@ -211,17 +215,17 @@ def apply_artifacts_to_df(df, artifacts):
         ('damsire_win_rate', 'damsire_id')
     ]
     for col, id_col in encoding_cols:
-        if col in artifacts:
+        if col in artifacts and col not in df.columns:
             map_dict = artifacts[col]
             if id_col in df.columns:
                 df[col] = df[id_col].astype(str).apply(lambda k: lookup_rate(k, map_dict))
             else:
                 df[col] = 0.0
-        else:
+        elif col not in df.columns:
             df[col] = 0.0
 
     # 3. Aptitude Maps (Course Type, Distance)
-    if 'aptitude_type' in artifacts:
+    if 'aptitude_type' in artifacts and 'course_type_win_rate' not in df.columns:
         type_map = artifacts['aptitude_type']
         def _get_type_aptitude(row):
             hid = str(row.get('horse_id', ''))
@@ -230,10 +234,10 @@ def apply_artifacts_to_df(df, artifacts):
                 return type_map[hid][ctype]
             return 0.0
         df['course_type_win_rate'] = df.apply(_get_type_aptitude, axis=1)
-    else:
+    elif 'course_type_win_rate' not in df.columns:
         df['course_type_win_rate'] = 0.0
 
-    if 'aptitude_dist' in artifacts:
+    if 'aptitude_dist' in artifacts and 'dist_cat_win_rate' not in df.columns:
         dist_map = artifacts['aptitude_dist']
         if 'distance' in df.columns and 'dist_cat' not in df.columns:
             df['dist_cat'] = df['distance'].apply(get_dist_cat)
@@ -244,16 +248,14 @@ def apply_artifacts_to_df(df, artifacts):
                 return dist_map[hid][cat]
             return 0.0
         df['dist_cat_win_rate'] = df.apply(_get_dist_aptitude, axis=1)
-    else:
+    elif 'dist_cat_win_rate' not in df.columns:
         df['dist_cat_win_rate'] = 0.0
 
     # 4. Place Win Rate
-    # scraperにはplace_code列はないためrace_idから推論するか引数で渡すか
-    if 'place_win_rate' in artifacts:
+    if 'place_win_rate' in artifacts and 'place_win_rate' not in df.columns:
         pw_map = artifacts['place_win_rate']
         def _get_place_win_rate(row):
             hid = str(row.get('horse_id', ''))
-            # 既にplace_code列がある場合はそれを使用、なければrace_idから推測
             if 'place_code' in row and pd.notna(row['place_code']):
                 pc = str(row['place_code'])
             elif 'race_id' in row and pd.notna(row['race_id']):
@@ -264,24 +266,56 @@ def apply_artifacts_to_df(df, artifacts):
                 return pw_map[hid][pc]
             return 0.0
         df['place_win_rate'] = df.apply(_get_place_win_rate, axis=1)
-    else:
+    elif 'place_win_rate' not in df.columns:
         df['place_win_rate'] = 0.0
 
     # 5. Jockey × Trainer Combo Win Rate
-    if 'jockey_trainer_win_rate' in artifacts:
+    if 'jockey_trainer_win_rate' in artifacts and 'jockey_trainer_combo_win_rate' not in df.columns:
         combo_map = artifacts['jockey_trainer_win_rate']
         def _get_combo_win_rate(row):
             key = str(row.get('jockey_id', 'unknown')) + '_' + str(row.get('trainer_id', 'unknown'))
             return lookup_rate(key, combo_map)
         df['jockey_trainer_combo_win_rate'] = df.apply(_get_combo_win_rate, axis=1)
-    else:
+    elif 'jockey_trainer_combo_win_rate' not in df.columns:
         df['jockey_trainer_combo_win_rate'] = 0.0
 
-    # 6. Default Fallbacks (win_streak, days_since_last_win)
+    # 6. Default Fallbacks and New Features 
     if 'win_streak' not in df.columns:
         df['win_streak'] = 0
     if 'days_since_last_win' not in df.columns:
         df['days_since_last_win'] = 365
+        
+    if 'interval' in df.columns:
+        df['is_long_rest'] = (df['interval'] >= 90).astype(int)
+    else:
+        df['is_long_rest'] = 0
+        
+    # 推論時のみ適用される（学習時には既に充当済み）
+    if 'course_runs' in artifacts and 'is_first_course_type' not in df.columns:
+        runs_map = artifacts['course_runs']
+        def _get_type_runs(row):
+            hid = str(row.get('horse_id', ''))
+            ctype = row.get('course_type', 'unknown')
+            if hid in runs_map and ctype in runs_map[hid]:
+                return runs_map[hid][ctype]
+            return 0
+        df['is_first_course_type'] = (df.apply(_get_type_runs, axis=1) == 0).astype(int)
+    elif 'is_first_course_type' not in df.columns:
+        df['is_first_course_type'] = 0
+
+    if 'dist_runs' in artifacts and 'is_first_dist_cat' not in df.columns:
+        runs_map = artifacts['dist_runs']
+        if 'distance' in df.columns and 'dist_cat' not in df.columns:
+            df['dist_cat'] = df['distance'].apply(get_dist_cat)
+        def _get_dist_runs(row):
+            hid = str(row.get('horse_id', ''))
+            cat = row.get('dist_cat', 'unknown')
+            if hid in runs_map and cat in runs_map[hid]:
+                return runs_map[hid][cat]
+            return 0
+        df['is_first_dist_cat'] = (df.apply(_get_dist_runs, axis=1) == 0).astype(int)
+    elif 'is_first_dist_cat' not in df.columns:
+        df['is_first_dist_cat'] = 0
         
     # 7. Label Encoding
     # artifacts内のLabelEncoderオブジェクトを判別して適用する

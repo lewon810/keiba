@@ -233,6 +233,7 @@ def preprocess(df):
     
     # Lag 1: Interval (Days since last race)
     df['interval'] = (df['date'] - df.groupby('horse_id')['date'].shift(1)).dt.days.fillna(365)
+    df['is_long_rest'] = (df['interval'] >= 90).astype(int)
     
     # Lag 1: Running Style — 前走の脚質（リーケージ回避）
     df['lag1_first_position'] = df.groupby('horse_id')['first_position'].shift(1).fillna(99)
@@ -352,13 +353,20 @@ def preprocess(df):
         
         # Convert to nested dict: {horse_id: {turf: 0.5, dirt: 0.0}}
         aptitude_type_map = {}
+        course_runs_map = {}
         for _, row in final_type_stats.iterrows():
             hid = str(row['horse_id'])
             ctype = row['course_type']
             if hid not in aptitude_type_map: aptitude_type_map[hid] = {}
+            if hid not in course_runs_map: course_runs_map[hid] = {}
             aptitude_type_map[hid][ctype] = row['rate']
+            course_runs_map[hid][ctype] = row['count']
+            
+        # 学習用の特徴量（これまでの出走回数が0かどうか）
+        df['is_first_course_type'] = (df.groupby(['horse_id', 'course_type']).cumcount() == 0).astype(int)
     else:
         aptitude_type_map = {}
+        course_runs_map = {}
         
     # Distance Category Win Rate
     # Sprint: <1400, Mile: 1400-1899, Intermediate: 1900-2400, Long: >2400
@@ -375,13 +383,20 @@ def preprocess(df):
         final_dist_stats['rate'] = final_dist_stats['sum'] / final_dist_stats['count']
         
         aptitude_dist_map = {}
+        dist_runs_map = {}
         for _, row in final_dist_stats.iterrows():
             hid = str(row['horse_id'])
             cat = row['dist_cat']
             if hid not in aptitude_dist_map: aptitude_dist_map[hid] = {}
+            if hid not in dist_runs_map: dist_runs_map[hid] = {}
             aptitude_dist_map[hid][cat] = row['rate']
+            dist_runs_map[hid][cat] = row['count']
+            
+        # 学習用の特徴量
+        df['is_first_dist_cat'] = (df.groupby(['horse_id', 'dist_cat']).cumcount() == 0).astype(int)
     else:
         aptitude_dist_map = {}
+        dist_runs_map = {}
 
 
     # Feature: Weight Diff (Clean)
@@ -453,6 +468,8 @@ def preprocess(df):
         'damsire_win_rate': damsire_win_rate_map,
         'aptitude_type': aptitude_type_map,
         'aptitude_dist': aptitude_dist_map,
+        'course_runs': course_runs_map,
+        'dist_runs': dist_runs_map,
         'place_win_rate': place_win_rate_map,  # 競馬場別勝率マップ
         'course_stats': None
     }
