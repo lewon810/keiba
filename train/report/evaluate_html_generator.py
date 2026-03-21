@@ -75,6 +75,27 @@ def generate_report(start_year, end_year, output_file="evaluate.html", race_min=
     # rank・odds を transform に持ち越すため、一時カラムとして付与
     raw_df['_raw_rank'] = pd.to_numeric(raw_df['rank'], errors='coerce')
     raw_df['_raw_odds'] = pd.to_numeric(raw_df['odds'], errors='coerce').fillna(0)
+    raw_df['_raw_umaban'] = pd.to_numeric(raw_df['umaban'], errors='coerce').fillna(0)
+    raw_df['_raw_horse_name'] = raw_df['horse_name'] if 'horse_name' in raw_df.columns else ""
+    raw_df['_raw_horse_id'] = raw_df['horse_id'] if 'horse_id' in raw_df.columns else ""
+    raw_df['_raw_course_type'] = raw_df['course_type'] if 'course_type' in raw_df.columns else ""
+    raw_df['_raw_distance'] = pd.to_numeric(raw_df['distance'], errors='coerce').fillna(0)
+    
+    # --- 新規追加：分析用に追加の生データを保持 ---
+    raw_df['_raw_jockey'] = raw_df['jockey'] if 'jockey' in raw_df.columns else ""
+    raw_df['_raw_jockey_id'] = raw_df['jockey_id'] if 'jockey_id' in raw_df.columns else ""
+    raw_df['_raw_trainer'] = raw_df['trainer'] if 'trainer' in raw_df.columns else ""
+    raw_df['_raw_trainer_id'] = raw_df['trainer_id'] if 'trainer_id' in raw_df.columns else ""
+    raw_df['_raw_weather'] = raw_df['weather'] if 'weather' in raw_df.columns else ""
+    raw_df['_raw_condition'] = raw_df['condition'] if 'condition' in raw_df.columns else ""
+    raw_df['_raw_horse_weight'] = raw_df['horse_weight'] if 'horse_weight' in raw_df.columns else ""
+    raw_df['_raw_weight_diff'] = raw_df['weight_diff'] if 'weight_diff' in raw_df.columns else ""
+    raw_df['_raw_time'] = raw_df['time'] if 'time' in raw_df.columns else ""
+    raw_df['_raw_last_3f'] = pd.to_numeric(raw_df['last_3f'] if 'last_3f' in raw_df.columns else 0, errors='coerce').fillna(0)
+    raw_df['_raw_popularity'] = pd.to_numeric(raw_df['popularity'] if 'popularity' in raw_df.columns else 0, errors='coerce').fillna(0)
+    raw_df['_raw_sire_id'] = raw_df['sire_id'] if 'sire_id' in raw_df.columns else ""
+    raw_df['_raw_damsire_id'] = raw_df['damsire_id'] if 'damsire_id' in raw_df.columns else ""
+
     # year カラムを保持（後でフィルタに使用）
     raw_df['_raw_year'] = pd.to_numeric(raw_df['year'], errors='coerce')
     raw_df['_raw_month'] = pd.to_numeric(raw_df['month'], errors='coerce') if 'month' in raw_df.columns else 0
@@ -120,6 +141,26 @@ def generate_report(start_year, end_year, output_file="evaluate.html", race_min=
     df_base['place_code'] = df_base['race_id'].str[4:6]
     df_base['rank'] = df_base['_raw_rank']
     df_base['odds'] = df_base['_raw_odds']
+    df_base['umaban'] = df_base['_raw_umaban']
+    df_base['horse_name'] = df_base['_raw_horse_name']
+    df_base['horse_id'] = df_base['_raw_horse_id']
+    df_base['course_type'] = df_base['_raw_course_type']
+    df_base['distance'] = df_base['_raw_distance']
+    
+    # --- 新規追加分のアタッチ ---
+    df_base['jockey'] = df_base['_raw_jockey']
+    df_base['jockey_id'] = df_base['_raw_jockey_id']
+    df_base['trainer'] = df_base['_raw_trainer']
+    df_base['trainer_id'] = df_base['_raw_trainer_id']
+    df_base['weather'] = df_base['_raw_weather']
+    df_base['condition'] = df_base['_raw_condition']
+    df_base['horse_weight'] = df_base['_raw_horse_weight']
+    df_base['weight_diff'] = df_base['_raw_weight_diff']
+    df_base['time'] = df_base['_raw_time']
+    df_base['last_3f'] = df_base['_raw_last_3f']
+    df_base['popularity'] = df_base['_raw_popularity']
+    df_base['sire_id'] = df_base['_raw_sire_id']
+    df_base['damsire_id'] = df_base['_raw_damsire_id']
     
     # Pre-filtering for simulation
     df_base = df_base[df_base['place_code'].notna()]
@@ -186,6 +227,24 @@ def generate_report(start_year, end_year, output_file="evaluate.html", race_min=
             })
     
     result_summary = pd.DataFrame(summary_data)
+
+    # =============================================================
+    # B. Export Raw Predictions for Analysis
+    # =============================================================
+    csv_out = output_file.replace(".html", "_predictions.csv")
+    csv_cols = ['race_id', 'place_code', 'umaban', 'horse_name', 'horse_id', 
+                'win_prob', 'rank', 'odds', 'popularity',
+                'course_type', 'distance', 'weather', 'condition',
+                'jockey', 'jockey_id', 'trainer', 'trainer_id',
+                'horse_weight', 'weight_diff', 'time', 'last_3f', 'sire_id', 'damsire_id']
+    # If any feature was generated and kept, we could export it, but these basics are enough to merge back.
+    save_cols = [c for c in csv_cols if c in df_base.columns]
+    
+    # Predict CSV should be sorted by race and then win_prob
+    df_csv = df_base[save_cols].sort_values(['race_id', 'win_prob'], ascending=[True, False])
+    df_csv.to_csv(csv_out, index=False, encoding='utf-8-sig')
+    print(f"Saved prediction raw data to {csv_out}")
+
 
 
 

@@ -97,8 +97,11 @@ jobs:
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
+        retention-days: 1
         name: evaluation-artifact
-        path: evaluate.html
+        path: |
+          evaluate.html
+          evaluate_predictions.csv
 
   # evaluate完了後にGitHub Pagesへ自動デプロイ
   deploy:
