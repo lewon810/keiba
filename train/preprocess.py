@@ -203,6 +203,13 @@ def preprocess(df):
     # Lag 1: Previous Rank
     df['lag1_rank'] = df.groupby('horse_id')['rank'].shift(1).fillna(99)
     
+    # Lag 1: Previous Distance & Popularity
+    df['lag1_distance'] = df.groupby('horse_id')['distance'].shift(1)
+    df['lag1_distance_diff'] = (df['distance'] - df['lag1_distance']).fillna(0)
+    df = df.drop(columns=['lag1_distance'], errors='ignore')
+    
+    df['lag1_popularity'] = df.groupby('horse_id')['popularity'].shift(1).fillna(99)
+    
     # Lag 2, 3: 2走前・3走前の着順
     df['lag2_rank'] = df.groupby('horse_id')['rank'].shift(2).fillna(99)
     df['lag3_rank'] = df.groupby('horse_id')['rank'].shift(3).fillna(99)
@@ -592,6 +599,13 @@ def transform(df, artifacts):
     df['lag1_rank'] = df.groupby('horse_id')['rank'].shift(1).fillna(99).astype(int)
     df['lag2_rank'] = df.groupby('horse_id')['rank'].shift(2).fillna(99).astype(int)
     df['lag3_rank'] = df.groupby('horse_id')['rank'].shift(3).fillna(99).astype(int)
+    
+    # Lag 1: Previous Distance & Popularity
+    df['lag1_distance'] = df.groupby('horse_id')['distance'].shift(1)
+    df['lag1_distance_diff'] = (df['distance'] - df['lag1_distance']).fillna(0)
+    df = df.drop(columns=['lag1_distance'], errors='ignore')
+    
+    df['lag1_popularity'] = df.groupby('horse_id')['popularity'].shift(1).fillna(99)
     df['avg_last3_rank'] = df[['lag1_rank', 'lag2_rank', 'lag3_rank']].mean(axis=1)
     
     # 正規化: 絶対着順は共通関数 apply_artifacts_to_df で計算するためここではスキップ

@@ -146,6 +146,7 @@ def generate_report(start_year, end_year, output_file="evaluate.html", race_min=
     df_base['horse_id'] = df_base['_raw_horse_id']
     df_base['course_type'] = df_base['_raw_course_type']
     df_base['distance'] = df_base['_raw_distance']
+    df_base['race_no'] = df_base['race_id_raw'].str[-2:].astype(int)
     
     # --- 新規追加分のアタッチ ---
     df_base['jockey'] = df_base['_raw_jockey']
@@ -165,6 +166,7 @@ def generate_report(start_year, end_year, output_file="evaluate.html", race_min=
     # Pre-filtering for simulation
     df_base = df_base[df_base['place_code'].notna()]
     unique_places = sorted(df_base['place_code'].unique().astype(str))
+    unique_race_nos = sorted(df_base['race_no'].unique().astype(int))
 
     # 期待値(score)ベースの評価は廃止されました
     
@@ -229,10 +231,56 @@ def generate_report(start_year, end_year, output_file="evaluate.html", race_min=
     result_summary = pd.DataFrame(summary_data)
 
     # =============================================================
+    # A-2. Win_Prob ベースの評価 (Race No 版)
+    # =============================================================
+    summary_race_data = []
+    for prob_thresh in min_probs:
+        for r_no in unique_race_nos:
+            race_df = df_base[df_base['race_no'] == r_no]
+            
+            # --- Top 1 を win_prob でソート ---
+            race_df_sorted = race_df.sort_values(['race_id', 'win_prob'], ascending=[True, False])
+            top1_df = race_df_sorted.groupby('race_id').head(1)
+            
+            # win_prob 閾値でフィルタ
+            bet_df = top1_df[top1_df['win_prob'] >= prob_thresh]
+            
+            bets = len(bet_df)
+            if bets > 0:
+                cost = bets * 100
+                hits_df = bet_df[bet_df['rank'] == 1]
+                hits = len(hits_df)
+                race_df_hits = bet_df[bet_df['rank'] <= 3]
+                hits_top3 = len(race_df_hits)
+                return_amt = (hits_df['odds'] * 100).sum()
+                
+                roi = return_amt / cost * 100
+                hit_rate = hits / bets * 100
+                place_rate = hits_top3 / bets * 100
+            else:
+                bets, hits, hits_top3, return_amt, cost = 0, 0, 0, 0, 0
+                roi, hit_rate, place_rate = 0, 0, 0
+            
+            summary_race_data.append({
+                'min_prob': prob_thresh,
+                'race_no': r_no,
+                'bets': bets,
+                'hits': hits,
+                'hits_top3': hits_top3,
+                'hit_rate': hit_rate,
+                'place_rate': place_rate,
+                'roi': roi,
+                'return': return_amt,
+                'cost': cost
+            })
+    
+    result_race_summary = pd.DataFrame(summary_race_data)
+
+    # =============================================================
     # B. Export Raw Predictions for Analysis
     # =============================================================
     csv_out = output_file.replace(".html", "_predictions.csv")
-    csv_cols = ['race_id', 'place_code', 'umaban', 'horse_name', 'horse_id', 
+    csv_cols = ['race_id', 'race_no', 'place_code', 'umaban', 'horse_name', 'horse_id', 
                 'win_prob', 'rank', 'odds', 'popularity',
                 'course_type', 'distance', 'weather', 'condition',
                 'jockey', 'jockey_id', 'trainer', 'trainer_id',
@@ -337,6 +385,12 @@ def generate_report(start_year, end_year, output_file="evaluate.html", race_min=
     html_content += "<h3>Hit Rate by Racecourse</h3>"
     pivot_hr = result_summary.pivot_table(index='min_prob', columns='place_name', values='hit_rate', aggfunc='first')
     html_content += pivot_hr.to_html(classes='table', float_format="%.1f%%", na_rep="-")
+    
+    # By Race No (Win_Prob)
+    html_content += "<h3>Hit Rate by Race Number</h3>"
+    pivot_race_hr = result_race_summary.pivot_table(index='min_prob', columns='race_no', values='hit_rate', aggfunc='first')
+    pivot_race_hr.columns = [f"{c}R" for c in pivot_race_hr.columns]
+    html_content += pivot_race_hr.to_html(classes='table', float_format="%.1f%%", na_rep="-")
     
     html_content += '</div>'  # end section-prob
     

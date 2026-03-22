@@ -37,6 +37,8 @@ FEATURES = [
     'is_long_rest',
     'is_first_course_type',
     'is_first_dist_cat',
+    'lag1_distance_diff',
+    'lag1_popularity',
 ]
 # 除外した特徴量と理由:
 # - horse_id / jockey_id / trainer_id / sire_id / damsire_id:
