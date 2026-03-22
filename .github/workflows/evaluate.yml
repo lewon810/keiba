@@ -1,4 +1,4 @@
-name: Learn and Evaluate
+name: Evaluate
 
 on:
   workflow_dispatch:
