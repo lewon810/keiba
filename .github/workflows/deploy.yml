@@ -27,45 +27,46 @@ jobs:
       with:
         python-version: '3.10'
 
-    # 同一runからprediction-artifactをダウンロード（predictから呼ばれた場合）
-    - name: Download Prediction Artifact (same run)
-      if: inputs.source == 'predict'
+    # 同一runからアーティファクトをダウンロード（callerから呼ばれた場合）
+    - name: Download Artifact (same run)
       uses: actions/download-artifact@v4
       with:
-        name: prediction-artifact
         path: public
 
-    # 過去runからprediction-artifactをダウンロード（predictから呼ばれていない場合）
-    - name: Download Prediction Artifact (previous run)
-      if: inputs.source != 'predict'
-      uses: dawidd6/action-download-artifact@v3
-      with:
-        workflow: predict.yml
-        name: prediction-artifact
-        path: public
-        if_no_artifact_found: warn
-        check_artifacts:  true
-        search_artifacts: true
+    # 過去runから別のアーティファクトをダウンロード（不足分を補う）
+    - name: Download Other Artifact (previous run)
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        # 現在のソースが predict なら evaluate を、evaluate なら predict を取得する
+        if [ "${{ inputs.source }}" = "predict" ]; then
+          TARGET_WORKFLOW="evaluate.yml"
+          TARGET_ARTIFACT="evaluation-artifact"
+        else
+          TARGET_WORKFLOW="predict.yml"
+          TARGET_ARTIFACT="prediction-artifact"
+        fi
+        
+        echo "Searching for latest successful run of $TARGET_WORKFLOW..."
+        RUN_ID=$(gh run list --workflow "$TARGET_WORKFLOW" --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+        
+        if [ -n "$RUN_ID" ] && [ "$RUN_ID" != "null" ]; then
+          echo "Found Run ID: $RUN_ID. Downloading $TARGET_ARTIFACT..."
+          gh run download "$RUN_ID" --name "$TARGET_ARTIFACT" --dir "public/$TARGET_ARTIFACT"
+        else
+          echo "No successful $TARGET_WORKFLOW runs found. Skipping."
+        fi
 
-    # 同一runからevaluation-artifactをダウンロード（evaluateから呼ばれた場合）
-    - name: Download Evaluation Artifact (same run)
-      if: inputs.source == 'evaluate'
-      uses: actions/download-artifact@v4
-      with:
-        name: evaluation-artifact
-        path: public
-
-    # 過去runからevaluation-artifactをダウンロード（evaluateから呼ばれていない場合）
-    - name: Download Evaluation Artifact (previous run)
-      if: inputs.source != 'evaluate'
-      uses: dawidd6/action-download-artifact@v3
-      with:
-        workflow: evaluate.yml
-        name: evaluation-artifact
-        path: public
-        if_no_artifact_found: warn
-        check_artifacts:  true
-        search_artifacts: true
+    - name: Flatten Public Directory
+      run: |
+        # サブディレクトリ配下のファイルを public 直下に移動
+        # (v4ではアーティファクト名ごとにディレクトリが作られるため)
+        if [ -d public ]; then
+          find public -mindepth 2 -type f -exec mv -v {} public/ \;
+          # 空になったサブディレクトリを削除
+          find public -mindepth 1 -type d -empty -delete
+        fi
+        ls -R public/
 
     - name: Generate Index
       run: |
