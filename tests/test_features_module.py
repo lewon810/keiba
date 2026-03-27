@@ -232,7 +232,7 @@ class TestConstants:
     """定数のテスト"""
     
     def test_features_count(self):
-        assert len(FEATURES) == 30
+        assert len(FEATURES) == 35
     
     def test_features_no_duplicates(self):
         assert len(FEATURES) == len(set(FEATURES))

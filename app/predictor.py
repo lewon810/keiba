@@ -63,11 +63,15 @@ def predict(race_data, return_df=False):
                     df.at[i, 'lag1_speed_index'] = last_stats['lag1_speed_index']
                     df.at[i, 'lag1_last_3f'] = last_stats['lag1_last_3f']
                     df.at[i, 'interval'] = last_stats['interval']
+                    df.at[i, 'lag1_distance'] = last_stats.get('lag1_distance', 0)
+                    df.at[i, 'lag1_popularity'] = last_stats.get('lag1_popularity', 99)
                 else:
                     df.at[i, 'lag1_rank'] = 99
                     df.at[i, 'lag1_speed_index'] = 0
                     df.at[i, 'lag1_last_3f'] = 0
                     df.at[i, 'interval'] = 365
+                    df.at[i, 'lag1_distance'] = 0
+                    df.at[i, 'lag1_popularity'] = 99
                 
                 # Lag 2, 3 — 2走前・3走前のデータ
                 lag2_stats = loader.get_nth_last_race(row['horse_id'], n=2, current_date_str=current_date) if hasattr(loader, 'get_nth_last_race') else None
@@ -82,6 +86,8 @@ def predict(race_data, return_df=False):
             df['lag1_speed_index'] = 0
             df['lag1_last_3f'] = 0
             df['interval'] = 365
+            df['lag1_distance'] = 0
+            df['lag1_popularity'] = 99
             df['lag2_rank'] = 99
             df['lag3_rank'] = 99
             df['lag2_speed_index'] = 0
@@ -117,6 +123,12 @@ def predict(race_data, return_df=False):
         df['waku'] = pd.to_numeric(df['waku'], errors='coerce').fillna(0)
         df['umaban'] = pd.to_numeric(df['umaban'], errors='coerce').fillna(0)
         df['distance'] = pd.to_numeric(df['distance'], errors='coerce').fillna(0)
+        
+        # Calculate lag distance difference
+        if 'lag1_distance' not in df.columns:
+            df['lag1_distance'] = 0
+        df['lag1_distance'] = pd.to_numeric(df['lag1_distance'], errors='coerce').fillna(0)
+        df['lag1_distance_diff'] = df['distance'] - df['lag1_distance']
         
         # Missing columns handling
         if 'weight_diff' not in df.columns:

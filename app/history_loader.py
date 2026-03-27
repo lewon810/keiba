@@ -28,7 +28,7 @@ class HistoryLoader:
                 
                 # 必要カラム（speed_index計算のため course_type, distance, time を追加）
                 needed = ['horse_id', 'rank', 'time', 'race_id', 'last_3f',
-                          'course_type', 'distance']
+                          'course_type', 'distance', 'popularity']
                 date_cols = []
                 if 'year' in df.columns and 'month' in df.columns and 'day' in df.columns:
                     date_cols = ['year', 'month', 'day']
@@ -170,11 +170,23 @@ class HistoryLoader:
         except:
             speed_index = 0.0
             
+        try:
+            distance = float(last_race.get('distance', 0))
+        except:
+            distance = 0.0
+            
+        try:
+            popularity = float(last_race.get('popularity', 99))
+        except:
+            popularity = 99.0
+            
         return {
             "lag1_rank": rank,
             "interval": interval,
             "lag1_speed_index": speed_index,
-            "lag1_last_3f": last_3f
+            "lag1_last_3f": last_3f,
+            "lag1_distance": distance,
+            "lag1_popularity": popularity
         }
     def get_nth_last_race(self, horse_id, n=2, current_date_str=None):
         """
