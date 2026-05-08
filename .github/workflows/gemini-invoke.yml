@@ -87,6 +87,7 @@ jobs:
                   ],
                   "includeTools": [
                     "add_issue_comment",
+                    "get_issue",
                     "issue_read",
                     "list_issues",
                     "search_issues",
@@ -115,7 +116,10 @@ jobs:
                   "run_shell_command(echo)",
                   "run_shell_command(grep)",
                   "run_shell_command(head)",
-                  "run_shell_command(tail)"
+                  "run_shell_command(tail)",
+                  "run_shell_command(ls)",
+                  "run_shell_command(find)",
+                  "glob"
                 ]
               }
             }
