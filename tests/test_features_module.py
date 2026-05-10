@@ -245,3 +245,110 @@ class TestConstants:
     
     def test_place_map_keys_match(self):
         assert set(PLACE_MAP.keys()) == set(PLACE_MAP_SHORT.keys())
+
+
+class TestJockeyWinRateRecentOnly:
+    """
+    preprocess() の騎手勝率 artifacts が直近2年のみで計算されることを確認するテスト。
+    古いレース（3年以上前）の騎手が artifacts に含まれないことを検証する。
+    """
+
+    def _make_df(self):
+        """3年前・直近1年の両方のデータを持つサンプルデータを生成する"""
+        today = pd.Timestamp.today().normalize()
+
+        records = []
+        # 「古い騎手」: 3年以上前（2021年）にのみ出走 → 直近2年の範囲外
+        for i in range(10):
+            records.append({
+                'race_id': f'20210901010{i:02d}01',
+                'horse_id': f'2017{i:06d}',
+                'jockey_id': 'old_jockey',
+                'trainer_id': 'old_trainer',
+                'rank': 1 if i == 0 else 2,
+                'time': '1:34.5',
+                'last_3f': 34.5,
+                'waku': 1, 'umaban': 1,
+                'distance': 1600,
+                'course_type': '芝',
+                'weather': '晴',
+                'condition': '良',
+                'weight_diff': 0,
+                'passing': '3-3-2-1',
+                'odds': 5.0,
+                'popularity': 3,
+                'year': 2021,   # 固定: 確実に2年超え前
+                'month': 9,
+                'day': 1,
+            })
+
+        # 「新しい騎手」: 直近1年に出走 → 直近2年の範囲内
+        for i in range(10):
+            records.append({
+                'race_id': f'20240901010{i:02d}01',
+                'horse_id': f'2020{i:06d}',
+                'jockey_id': 'new_jockey',
+                'trainer_id': 'new_trainer',
+                'rank': 1 if i == 0 else 2,
+                'time': '1:34.5',
+                'last_3f': 34.5,
+                'waku': 1, 'umaban': 1,
+                'distance': 1600,
+                'course_type': '芝',
+                'weather': '晴',
+                'condition': '良',
+                'weight_diff': 0,
+                'passing': '3-3-2-1',
+                'odds': 5.0,
+                'popularity': 3,
+                'year': today.year - 1,  # 直近1年前
+                'month': 9,
+                'day': 1,
+            })
+
+        return pd.DataFrame(records)
+
+    def test_recent_jockey_in_artifact(self):
+        """直近2年以内の騎手は artifacts に含まれること"""
+        from train.preprocess import preprocess
+        df = self._make_df()
+        _, artifacts = preprocess(df)
+        assert 'new_jockey' in artifacts['jockey_win_rate'], \
+            "直近1年の騎手 'new_jockey' が artifacts に含まれていない"
+
+    def test_old_jockey_not_in_artifact(self):
+        """3年以上前にしか出走していない騎手は artifacts に含まれないこと"""
+        from train.preprocess import preprocess
+        df = self._make_df()
+        _, artifacts = preprocess(df)
+        assert 'old_jockey' not in artifacts['jockey_win_rate'], \
+            "3年以上前の騎手 'old_jockey' が artifacts に含まれてしまっている"
+
+    def test_recent_trainer_in_artifact(self):
+        """直近2年以内の調教師は artifacts に含まれること"""
+        from train.preprocess import preprocess
+        df = self._make_df()
+        _, artifacts = preprocess(df)
+        assert 'new_trainer' in artifacts['trainer_win_rate'], \
+            "直近1年の調教師 'new_trainer' が artifacts に含まれていない"
+
+    def test_old_trainer_not_in_artifact(self):
+        """3年以上前にしか出走していない調教師は artifacts に含まれないこと"""
+        from train.preprocess import preprocess
+        df = self._make_df()
+        _, artifacts = preprocess(df)
+        assert 'old_trainer' not in artifacts['trainer_win_rate'], \
+            "3年以上前の調教師 'old_trainer' が artifacts に含まれてしまっている"
+
+    def test_combo_artifact_uses_recent_data(self):
+        """コンビ勝率マップも直近2年のデータのみを使うこと"""
+        from train.preprocess import preprocess
+        df = self._make_df()
+        _, artifacts = preprocess(df)
+        combo_map = artifacts['jockey_trainer_win_rate']
+        new_key = 'new_jockey_new_trainer'
+        old_key = 'old_jockey_old_trainer'
+        assert new_key in combo_map, \
+            f"直近1年のコンビキー '{new_key}' が artifacts に含まれていない"
+        assert old_key not in combo_map, \
+            f"3年以上前のコンビキー '{old_key}' が artifacts に含まれてしまっている"

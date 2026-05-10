@@ -254,13 +254,19 @@ def preprocess(df):
     # 1. Calculate boolean 'is_win'
     df['is_win'] = (df['rank'] == 1).astype(int)
     
-    # 2. 全期間 expanding mean (shift済み): 長期的な騎手実力
+    # 2. 全期間 expanding mean (shift済み): 学習用特徴量（リーケージ回避）
     df['jockey_win_rate'] = df.groupby('jockey_id')['is_win'].transform(
         lambda x: x.shift(1).expanding().mean()
     ).fillna(0)
     
-    # For Artifacts: 全期間マップを保存
-    final_jockey_stats = df.groupby('jockey_id')['is_win'].agg(['count', 'sum'])
+    # For Artifacts: 直近2年のデータのみで騎手勝率マップを作成（evaluate/predict用）
+    # 最新レース日から遡って2年以内のデータのみ使用
+    _latest_date = df['date'].max()
+    _two_years_ago = _latest_date - pd.DateOffset(years=2)
+    _recent_df = df[df['date'] >= _two_years_ago]
+    print(f"  騎手勝率マップ: {_two_years_ago.date()} 〜 {_latest_date.date()} のデータを使用 ({len(_recent_df)} 件)")
+    
+    final_jockey_stats = _recent_df.groupby('jockey_id')['is_win'].agg(['count', 'sum'])
     final_jockey_stats['rate'] = final_jockey_stats['sum'] / final_jockey_stats['count']
     jockey_win_rate_map = final_jockey_stats['rate'].to_dict()
     
@@ -273,7 +279,8 @@ def preprocess(df):
         lambda x: x.shift(1).expanding().mean()
     ).fillna(0)
     
-    final_trainer_stats = df.groupby('trainer_id')['is_win'].agg(['count', 'sum'])
+    # Artifacts: 調教師勝率マップも直近2年で計算
+    final_trainer_stats = _recent_df.groupby('trainer_id')['is_win'].agg(['count', 'sum'])
     final_trainer_stats['rate'] = final_trainer_stats['sum'] / final_trainer_stats['count']
     trainer_win_rate_map = final_trainer_stats['rate'].to_dict()
 
@@ -284,8 +291,10 @@ def preprocess(df):
     df['jockey_trainer_combo_win_rate'] = df.groupby('jockey_trainer_key')['is_win'].transform(
         lambda x: x.shift(1).expanding().mean()
     ).fillna(0)
-    # Artifacts: コンビ勝率マップ
-    final_combo_stats = df.groupby('jockey_trainer_key')['is_win'].agg(['count', 'sum'])
+    # Artifacts: コンビ勝率マップも直近2年で計算
+    _recent_df_combo = _recent_df.copy()
+    _recent_df_combo['jockey_trainer_key'] = _recent_df_combo['jockey_id'].astype(str) + '_' + _recent_df_combo['trainer_id'].astype(str)
+    final_combo_stats = _recent_df_combo.groupby('jockey_trainer_key')['is_win'].agg(['count', 'sum'])
     final_combo_stats['rate'] = final_combo_stats['sum'] / final_combo_stats['count']
     jockey_trainer_win_rate_map = final_combo_stats['rate'].to_dict()
     df = df.drop(columns=['jockey_trainer_key'], errors='ignore')
