@@ -255,16 +255,12 @@ def bulk_scrape(year_start, year_end, month_start=1, month_end=12, force=False):
             except Exception as e:
                 print(f"Error reading existing file {save_path}: {e}")
         elif force and os.path.exists(save_path):
-            # If forced, remove existing file to start fresh
-            try:
-                os.remove(save_path)
-                print(f"Deleted existing file {save_path} (Force=True)")
-            except:
-                pass
-
+            print(f"Force mode: Will overwrite {save_path} upon first successful scrape.")
+            
         # Prepare for incremental write
         buffer = []
         BUFFER_SIZE = 50
+        is_first_save = True
         
         for month in range(month_start, month_end + 1):
             print(f"Scraping {year}-{month}...")
@@ -285,15 +281,17 @@ def bulk_scrape(year_start, year_end, month_start=1, month_end=12, force=False):
                 
                 # Incremental Save
                 if len(buffer) >= BUFFER_SIZE:
-                    _save_buffer(buffer, save_path)
+                    _save_buffer(buffer, save_path, force=force, is_first_save=is_first_save)
+                    is_first_save = False
                     buffer = [] # Clear buffer
             
             # Save remaining in buffer at end of month
             if buffer:
-                _save_buffer(buffer, save_path)
+                _save_buffer(buffer, save_path, force=force, is_first_save=is_first_save)
+                is_first_save = False
                 buffer = []
 
-def _save_buffer(data, path):
+def _save_buffer(data, path, force=False, is_first_save=False):
     if not data: return
     
     if not data: return
@@ -322,8 +320,10 @@ def _save_buffer(data, path):
     
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        # Append mode
-        df.to_csv(path, mode='a', header=not file_exists, index=False, encoding='utf-8')
+        # 最初の保存かつ force の場合は上書き (w)、それ以外は追記 (a)
+        mode = 'w' if (force and is_first_save) else 'a'
+        write_header = not file_exists or (force and is_first_save)
+        df.to_csv(path, mode=mode, header=write_header, index=False, encoding='utf-8')
         # print(f"Saved {len(df)} rows.")
     except Exception as e:
         print(f"Error saving to {path}: {e}")
