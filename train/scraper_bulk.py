@@ -184,24 +184,32 @@ def scrape_race_data(race_id):
         if len(cols) < 10: continue
         
         try:
-            # Extract Trainer (Index 18 usually)
+            # Determine column indices based on format (new format has >= 25 cols, old has 21)
+            is_new_format = len(cols) >= 25
+            
+            idx_trainer = 22 if is_new_format else 18
+            idx_weight = 18 if is_new_format else 14
+            idx_passing = 14 if is_new_format else 10
+            idx_last_3f = 15 if is_new_format else 11
+            idx_odds = 16 if is_new_format else 12
+            idx_popularity = 17 if is_new_format else 13
+
+            # Extract Trainer
             trainer_id = ""
             trainer_name = ""
-            if len(cols) > 18:
-                trainer_node = cols[18].select_one("a")
+            if len(cols) > idx_trainer:
+                trainer_node = cols[idx_trainer].select_one("a")
                 if trainer_node:
                     trainer_id = trainer_node.get("href").split("/")[-2]
                     trainer_name = trainer_node.get_text(strip=True)
                 else:
-                    trainer_name = cols[18].get_text(strip=True)
+                    trainer_name = cols[idx_trainer].get_text(strip=True)
             
-            # Extract Horse Weight (Index 14)
-            # Format: 484(+2) or 484(0) or 計不
+            # Extract Horse Weight
             horse_weight = ""
             weight_diff = ""
-            if len(cols) > 14:
-                hw_text = cols[14].get_text(strip=True)
-                # Parse 484(+2)
+            if len(cols) > idx_weight:
+                hw_text = cols[idx_weight].get_text(strip=True)
                 match = re.match(r"(\d+)\(([-+]?\d+)\)", hw_text)
                 if match:
                     horse_weight = match.group(1)
@@ -225,10 +233,10 @@ def scrape_race_data(race_id):
                 "horse_weight": horse_weight,
                 "weight_diff": weight_diff,
                 "time": cols[7].get_text(strip=True),
-                "passing": cols[10].get_text(strip=True) if len(cols) > 10 else "",
-                "last_3f": cols[11].get_text(strip=True) if len(cols) > 11 else "",
-                "odds": cols[12].get_text(strip=True),
-                "popularity": cols[13].get_text(strip=True)
+                "passing": cols[idx_passing].get_text(strip=True) if len(cols) > idx_passing else "",
+                "last_3f": cols[idx_last_3f].get_text(strip=True) if len(cols) > idx_last_3f else "",
+                "odds": cols[idx_odds].get_text(strip=True) if len(cols) > idx_odds else "",
+                "popularity": cols[idx_popularity].get_text(strip=True) if len(cols) > idx_popularity else ""
             }
             results.append(res)
         except Exception as e:
