@@ -10,8 +10,9 @@ try:
     from train.features import FEATURES, lookup_rate, get_dist_cat, apply_label_encoder
 except ImportError:
     class settings:
-        MODEL_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'train', 'data', 'model')
-        MODEL_PATH = os.path.join(MODEL_DIR, 'model_lgb.pkl')
+        MODEL_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'train', 'models')
+        MODEL_PATH = os.path.join(MODEL_DIR, 'lgbm_ranker_v2.pkl')
+        RAW_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'train', 'data', 'raw')
     FEATURES = None
     lookup_rate = None
     get_dist_cat = None
@@ -38,6 +39,29 @@ def predict(race_data, return_df=False):
 
         # DataFrame
         df = pd.DataFrame(race_data)
+
+        # Merge horse_profiles.csv for sire_id / damsire_id
+        profile_path = os.path.join(settings.RAW_DATA_DIR, "horse_profiles.csv")
+        if os.path.exists(profile_path):
+            try:
+                profiles = pd.read_csv(profile_path, dtype={'horse_id': str, 'sire_id': str, 'damsire_id': str})
+                cols_to_merge = ['horse_id', 'sire_id', 'damsire_id']
+                profiles = profiles[[c for c in cols_to_merge if c in profiles.columns]]
+                df['horse_id'] = df['horse_id'].astype(str)
+                df = df.merge(profiles, on='horse_id', how='left')
+            except Exception as e:
+                print(f"⚠️  Failed to merge horse profiles: {e}")
+        
+        # Ensure sire_id and damsire_id exist
+        if 'sire_id' not in df.columns:
+            df['sire_id'] = "unknown"
+        else:
+            df['sire_id'] = df['sire_id'].fillna("unknown")
+
+        if 'damsire_id' not in df.columns:
+            df['damsire_id'] = "unknown"
+        else:
+            df['damsire_id'] = df['damsire_id'].fillna("unknown")
 
         # --- Feature Engineering for Inference ---
 

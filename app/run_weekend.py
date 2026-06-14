@@ -53,6 +53,11 @@ def main():
                 
                 race_data = scraper.fetch_race_data(r['url'])
                 if race_data:
+                    # Convert "YYYYMMDD" to "YYYY-MM-DD"
+                    formatted_date = f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:]}" if len(date_str) == 8 else date_str
+                    for horse in race_data:
+                        horse['date'] = formatted_date
+                        
                     # Use return_df=True to get DataFrame
                     df = predictor.predict(race_data, return_df=True)
                     if isinstance(df, str): # Error message

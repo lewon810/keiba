@@ -128,10 +128,11 @@ keiba/
 │   ├── scraper_horse.py  # 血統情報収集スクレイパー
 │   ├── preprocess.py     # 特徴量エンジニアリング
 │   ├── train.py          # モデル学習
+│   ├── data/             # 学習データ (results_*.csv)
+│   ├── models/           # 学習済みモデル・エンコーダー
 │   └── report/           # 評価レポート生成
 ├── deploy/               # デプロイスクリプト
 │   └── index_generator.py # GitHub Pagesインデックス生成
-├── data/                 # 学習データ・モデル (Git管理下)
 └── requirements.txt      
 ```
 

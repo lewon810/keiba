@@ -10,6 +10,24 @@ class HistoryLoader:
         self.df = None
         self.is_loaded = False
         
+    def _parse_date(self, date_val):
+        if not date_val:
+            return pd.NaT
+        if isinstance(date_val, (pd.Timestamp, pd.DatetimeIndex)):
+            return date_val
+        import datetime
+        if isinstance(date_val, (datetime.datetime, datetime.date)):
+            return pd.to_datetime(date_val)
+        
+        date_str = str(date_val).strip()
+        date_str = date_str.replace('年', '-').replace('月', '-').replace('日', '')
+        date_str = date_str.replace('/', '-')
+        
+        try:
+            return pd.to_datetime(date_str, errors='coerce')
+        except:
+            return pd.NaT
+        
     def load(self):
         if self.is_loaded: return
         
@@ -138,8 +156,9 @@ class HistoryLoader:
             
         # Filter before current date if provided
         if current_date_str:
-             curr_date = pd.to_datetime(current_date_str)
-             history = history[history['date'] < curr_date]
+             curr_date = self._parse_date(current_date_str)
+             if pd.notna(curr_date):
+                 history = history[history['date'] < curr_date]
              
         if history.empty:
             return None
@@ -149,8 +168,9 @@ class HistoryLoader:
         # Calculate Interval
         interval = 365
         if current_date_str:
-            curr_date = pd.to_datetime(current_date_str)
-            interval = (curr_date - last_race['date']).days
+            curr_date = self._parse_date(current_date_str)
+            if pd.notna(curr_date) and pd.notna(last_race['date']):
+                interval = (curr_date - last_race['date']).days
             
         # Parse Rank
         try:
@@ -202,8 +222,9 @@ class HistoryLoader:
             return None
         
         if current_date_str:
-            curr_date = pd.to_datetime(current_date_str)
-            history = history[history['date'] < curr_date]
+            curr_date = self._parse_date(current_date_str)
+            if pd.notna(curr_date):
+                history = history[history['date'] < curr_date]
         
         if len(history) < n:
             return None

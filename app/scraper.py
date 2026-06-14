@@ -32,7 +32,7 @@ def fetch_race_data(url):
                 text = data01.get_text(strip=True) # e.g. "14:20発走 / 芝1800m (右 C)"
                 
                 # Course / Dist
-                if "芝" in text: metadata["course_type"] = "turb"
+                if "芝" in text: metadata["course_type"] = "turf"
                 elif "ダ" in text: metadata["course_type"] = "dirt"
                 elif "障" in text: metadata["course_type"] = "steeple"
                 
@@ -90,6 +90,7 @@ def fetch_race_data(url):
             horse["trainer_id"] = get_id("td.Trainer a")
             
             horse["ninki"] = get_text("td.Popular_Ninki")
+            horse["popularity"] = horse["ninki"]
             
             # Odds extraction
             odds_span = row.select_one("[id^='odds-']")
