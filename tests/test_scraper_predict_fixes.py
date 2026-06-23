@@ -37,7 +37,7 @@ def test_scraper_course_type_and_popularity(monkeypatch):
         def __init__(self, text):
             self.text = text
             self.status_code = 200
-            self.encoding = 'euc-jp'
+            self.encoding = 'utf-8'
             
     def mock_get(url, headers=None, timeout=None):
         return MockResponse(html)
